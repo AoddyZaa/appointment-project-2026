@@ -1,5 +1,4 @@
 from datetime import datetime
-import json
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
@@ -11,10 +10,25 @@ st.set_page_config(page_title="Appointment Project 2026", page_icon="📅", layo
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # แปลงก้อน JSON จาก secrets.toml มาเป็น dict ตรงๆ ปลอดภัยหายห่วง
-    gcp_info = json.loads(st.secrets["gcp_service_account"])
-    creds = Credentials.from_service_account_info(gcp_info, scopes=scope)
+    # ดึงค่าจาก st.secrets แบบตรงๆ ไม่ผ่าน json.loads
+    raw_key = st.secrets["gcp_service_account"]["private_key"]
+    formatted_key = raw_key.replace("\\n", "\n")
     
+    creds_dict = {
+        "type": st.secrets["gcp_service_account"]["type"],
+        "project_id": st.secrets["gcp_service_account"]["project_id"],
+        "private_key_id": st.secrets["gcp_service_account"]["private_key_id"],
+        "private_key": formatted_key,
+        "client_email": st.secrets["gcp_service_account"]["client_email"],
+        "client_id": st.secrets["gcp_service_account"]["client_id"],
+        "auth_uri": st.secrets["gcp_service_account"]["auth_uri"],
+        "token_uri": st.secrets["gcp_service_account"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["gcp_service_account"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["gcp_service_account"]["client_x509_cert_url"],
+        "universe_domain": st.secrets["gcp_service_account"]["universe_domain"]
+    }
+    
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     sheet_url = "https://docs.google.com/spreadsheets/d/1l1BNsov2CzmbSgdpoi_zSkcyPIgiOtBVHcuyRDYb3EA/edit?usp=sharing"
     sheet = client.open_by_url(sheet_url).worksheet("Sheet1")
