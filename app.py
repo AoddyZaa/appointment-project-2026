@@ -19,7 +19,7 @@ def init_connections():
         "https://www.googleapis.com/auth/calendar",
     ]
     
-    # ดึงค่าความลับจาก secrets.toml มาใช้งานโดยตรง
+    # ดึงค่าความลับ gspread จาก Secrets บนเว็บ
     creds_dict = dict(st.secrets["gspread"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     
@@ -28,8 +28,8 @@ def init_connections():
 
 try:
     client, creds = init_connections()
-    # ดึงลิงก์ Google Sheets จาก secrets.toml มาเปิดใช้งาน
-    sheet_url = st.secrets["connections.gsheets"]["spreadsheet"]
+    # กำหนดลิงก์ Google Sheets ตรงนี้แบบถาวรไปเลย ปลอดภัยหายห่วง!
+    sheet_url = "https://docs.google.com/spreadsheets/d/1l1BNsov2CzmbSgdpoi_zSkcyPIgiOtBVHcuyRDYb3EA/edit?usp=sharing"
     sheet = client.open_by_url(sheet_url).worksheet("Sheet1")
 except Exception as e:
     st.error(
