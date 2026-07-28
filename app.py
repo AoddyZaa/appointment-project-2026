@@ -10,11 +10,10 @@ st.set_page_config(page_title="Appointment Project 2026", page_icon="📅", layo
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # ดึงค่าจาก Secrets ตรงๆ แบบ Multiline String ได้เลย
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+    # อ่านจากไฟล์ credentials.json ในโปรเจกต์โดยตรง จบปัญหาเรื่อง Private Key พัง 100%
+    creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
     client = gspread.authorize(creds)
+    
     sheet_url = "https://docs.google.com/spreadsheets/d/1l1BNsov2CzmbSgdpoi_zSkcyPIgiOtBVHcuyRDYb3EA/edit?usp=sharing"
     sheet = client.open_by_url(sheet_url).worksheet("Sheet1")
     return sheet
