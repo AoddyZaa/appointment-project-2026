@@ -10,8 +10,11 @@ st.set_page_config(page_title="Appointment Project 2026", page_icon="📅", layo
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # ดึงค่าความลับจากระบบ Secrets ของ Streamlit Cloud (ปลอดภัย ไม่ต้องเปิดเผยไฟล์คีย์)
+    # ดึงค่าจาก Secrets และแปลงร่าง \\n ให้เป็นบรรทัดใหม่ที่ถูกต้อง
     creds_dict = dict(st.secrets["gcp_service_account"])
+    if "private_key" in creds_dict:
+        creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
+        
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     
     client = gspread.authorize(creds)
