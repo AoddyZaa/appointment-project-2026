@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
 import pandas as pd
 
 # --- ตั้งค่าหน้าจอเว็บ ---
@@ -10,16 +9,13 @@ st.set_page_config(
     page_title="Appointment Project 2026", page_icon="📅", layout="wide"
 )
 
-# --- ฟังก์ชันเชื่อมต่อ Google Sheets โดยอ่านจากไฟล์ credentials.json ตรงๆ ---
-@st.cache_resource
-def init_connections():
+# --- ฟังก์ชันเชื่อมต่อ Google Sheets แบบกระชับและปลอดภัย ---
+def init_sheet():
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/calendar",
     ]
     
-    # ดึงค่าจาก Secrets (กรณีรันบนคลาวด์) หรือถ้าจะให้ชัวร์ ใช้ dict ข้อมูลตรงนี้ได้เลยครับ
     creds_dict = {
         "type": "service_account",
         "project_id": "appointment2026",
@@ -36,19 +32,19 @@ def init_connections():
 
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
-    return client, creds
-
-try:
-    client, creds = init_connections()
     sheet_url = "https://docs.google.com/spreadsheets/d/1l1BNsov2CzmbSgdpoi_zSkcyPIgiOtBVHcuyRDYb3EA/edit?usp=sharing"
     sheet = client.open_by_url(sheet_url).worksheet("Sheet1")
+    return sheet
+
+try:
+    sheet = init_sheet()
 except Exception as e:
-    st.error(f"⚠️ เชื่อมต่อ Google ไม่สำเร็จ: {e}")
+    st.error(f"⚠️ เชื่อมต่อ Google Sheets ไม่สำเร็จ: {e}")
     st.stop()
 
 # --- ส่วนหัวโปรแกรม ---
 st.title("📅 ระบบบันทึกตารางนัดหมาย (Appointment Project 2026)")
-st.write("กรอกข้อมูลด้านล่าง ระบบจะบันทึกลง Google Sheets และ **ยิงเข้า Google Calendar พร้อมตั้งเตือนอัตโนมัติ** ให้ทันที!")
+st.write("กรอกข้อมูลด้านล่าง ระบบจะบันทึกลง Google Sheets ทันที!")
 st.markdown("---")
 
 # --- ฟอร์มกรอกข้อมูลนัดหมาย ---
@@ -67,7 +63,7 @@ with st.form("appointment_form", clear_on_submit=True):
         phone_val = st.text_input("📞 เบอร์โทรศัพท์ติดต่อ")
         note_val = st.text_area("💬 หมายเหตุเพิ่มเติม")
 
-    submitted = st.form_submit_button("💾 บันทึกรายการ และส่งเข้า Google Calendar อัตโนมัติ")
+    submitted = st.form_submit_button("💾 บันทึกรายการลง Google Sheets")
 
 # --- เมื่อกดปุ่มบันทึก ---
 if submitted:
@@ -89,38 +85,7 @@ if submitted:
                 note_val,
             ]
             sheet.append_row(row_data)
-
-            calendar_service = build("calendar", "v3", credentials=creds)
-
-            start_datetime = f"{date_str}T{time_str}:00"
-            end_time_obj = (
-                datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-                + timedelta(hours=1)
-            )
-            end_datetime = end_time_obj.strftime("%Y-%m-%dT%H:%M:00")
-
-            event_body = {
-                "summary": f"นัดหมาย: {title_val}",
-                "location": location_val,
-                "description": f"ผู้ติดต่อ: {by_val}\nเจ้าของนัด: {owner_val}\nเบอร์โทร: {phone_val}\nหมายเหตุ: {note_val}",
-                "start": {"dateTime": start_datetime, "timeZone": "Asia/Bangkok"},
-                "end": {"dateTime": end_datetime, "timeZone": "Asia/Bangkok"},
-                "reminders": {
-                    "useDefault": False,
-                    "overrides": [
-                        {"method": "popup", "minutes": 1440},
-                        {"method": "popup", "minutes": 120},
-                        {"method": "popup", "minutes": 30},
-                    ],
-                },
-            }
-
-            calendar_service.events().insert(
-                calendarId="primary", body=event_body
-            ).execute()
-
-            st.success("🎉 บันทึกข้อมูลลง Google Sheets และส่งเข้า Google Calendar พร้อมตั้งเตือนอัตโนมัติสำเร็จเรียบร้อยแล้วครับ!")
-
+            st.success("🎉 บันทึกข้อมูลลง Google Sheets สำเร็จเรียบร้อยแล้วครับ!")
         except Exception as e:
             st.error(f"❌ เกิดข้อผิดพลาดระหว่างบันทึกข้อมูล: {e}")
 
