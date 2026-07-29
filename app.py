@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ตั้งค่าหน้าเว็บแบบ Wide Mode
 st.set_page_config(
@@ -55,6 +57,26 @@ def format_thai_date(date_obj):
     thai_year = date_obj.year + 543
     return f"{day} {month} {thai_year}"
 
+# ================= 🔗 ฟังก์ชันเชื่อมต่อ Google Sheets =================
+def get_google_sheet_data():
+    try:
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds_dict = dict(st.secrets["gpex"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+        
+        # เปิดไฟล์ Google Sheet ชื่อ AppointmentDB (หรือปรับชื่อตามจริง)
+        sheet = client.open("AppointmentDB").sheet1
+        data = sheet.get_all_records()
+        return sheet, pd.DataFrame(data)
+    except Exception as e:
+        # กรณีดึงไม่ได้ หรือยังไม่ได้ตั้งค่า Secrets ให้ใช้ข้อมูลจำลองสำรองไว้ก่อน
+        st.error(f"⚠️ ไม่สามารถเชื่อมต่อ Google Sheets ได้: {e}")
+        return None, pd.DataFrame()
+
+# โหลดข้อมูลจาก Google Sheet
+sheet_connection, df_remote = get_google_sheet_data()
+
 # ================= 📝 ฟอร์มกรอกข้อมูล (อยู่ใน Sidebar) =================
 st.sidebar.markdown("<h2>📌 บันทึกนัดหมายใหม่</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #7F8C8D; font-size: 14px;'>กรอกข้อมูลด้านซ้าย แล้วกดพับซ่อนเมนูก้างปลาเพื่อดูตารางเต็มจอได้ครับ</p>", unsafe_allow_html=True)
@@ -74,52 +96,35 @@ with st.sidebar.form("appointment_form", clear_on_submit=True):
     
     if submitted:
         if title:
-            # เพิ่มข้อมูลใหม่เข้าไปใน session_state ทันที
-            new_entry = {
-                "เลือก": False,
-                "วันที่นัด_Eng": app_date.strftime('%Y-%m-%d'),
-                "เวลานัด": app_time.strftime('%H:%M'), 
-                "รายการนัด": title, 
-                "นัดโดย": booked_by if booked_by else "-", 
-                "เจ้าของนัด": owner if owner else "-", 
-                "สถานที่": location if location else "-", 
-                "เบอร์โทร": phone if phone else "-", 
-                "หมายเหตุ": note if note else "-"
-            }
-            if 'appointments_data' not in st.session_state:
-                st.session_state.appointments_data = []
-            st.session_state.appointments_data.append(new_entry)
+            new_row = [
+                app_date.strftime('%Y-%m-%d'),
+                app_time.strftime('%H:%M'),
+                title,
+                booked_by if booked_by else "-",
+                owner if owner else "-",
+                location if location else "-",
+                phone if phone else "-",
+                note if note else "-"
+            ]
             
-            formatted_date = format_thai_date(app_date)
-            st.success(f"🎉 บันทึก '{title}' (วันที่ {formatted_date}) เรียบร้อย!")
-            st.rerun()
+            if sheet_connection is not None:
+                sheet_connection.append_row(new_row)
+                formatted_date = format_thai_date(app_date)
+                st.sidebar.success(f"🎉 บันทึก '{title}' ลง Google Sheets เรียบร้อย!")
+                st.rerun()
+            else:
+                st.sidebar.error("⚠️ ยังไม่ได้เชื่อมต่อไฟล์ Google Sheet จริง")
         else:
-            st.error("⚠️ กรุณากรอกรายการนัดด้วยครับ!")
+            st.sidebar.error("⚠️ กรุณากรอกรายการนัดด้วยครับ!")
 
 # ================= 📋 หน้าจอหลัก: แสดงตารางรายการนัดหมาย =================
 st.markdown("<h1>📅 ระบบบันทึกและจัดการนัดหมาย</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>แสดงรายการนัดหมาย (รูปแบบวันที่ไทย) เรียงตามวันและเวลา พร้อมช่องเลือกจัดการ</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>แสดงรายการนัดหมายจาก Google Sheets (รูปแบบวันที่ไทย) เรียงตามวันและเวลา พร้อมช่องเลือกจัดการ</p>", unsafe_allow_html=True)
 st.write("---")
 
-# กำหนด Session State ตั้งต้น
-if 'appointments_data' not in st.session_state:
-    st.session_state.appointments_data = [
-        {
-            "เลือก": False, "วันที่นัด_Eng": "2026-06-01", "เวลานัด": "09:00", 
-            "รายการนัด": "นัดเก่าที่ผ่านมาแล้ว", "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ที่เก่า", "เบอร์โทร": "081-111-1111", "หมายเหตุ": "-"
-        },
-        {
-            "เลือก": False, "วันที่นัด_Eng": "2026-08-01", "เวลานัด": "14:30", 
-            "รายการนัด": "จ่ายค่าน้ำค่าไฟ", "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ส่วนตัว", "สถานที่": "การไฟฟ้า", "เบอร์โทร": "089-876-5432", "หมายเหตุ": "กำหนดจ่ายวันสุดท้าย"
-        },
-        {
-            "เลือก": False, "วันที่นัด_Eng": "2026-07-30", "เวลานัด": "10:00", 
-            "รายการนัด": "ประชุมวางแผนโปรเจกต์", "นัดโดย": "คุณอ๊อด", "เจ้าofนัด": "ทีมงาน", "สถานที่": "ห้องประชุม A", "เบอร์โทร": "081-234-5678", "หมายเหตุ": "เตรียมเอกสารไปด้วย"
-        }
-    ]
-
-if len(st.session_state.appointments_data) > 0:
-    df = pd.DataFrame(st.session_state.appointments_data)
+if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.columns:
+    df = df_remote.copy()
+    df['เลือก'] = False
     
     # แปลงวันที่และเรียงลำดับ
     df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
@@ -148,32 +153,31 @@ if len(st.session_state.appointments_data) > 0:
     col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
     with col_btn1:
         if st.button("🗑️ ลบรายการที่เลือก"):
-            # หา index ในหน้าจอที่ถูกติ๊กเลือก
             selected_rows = edited_df[edited_df["เลือก"] == True]
-            
             if not selected_rows.empty:
-                # ดึงรายการที่ *ไม่ได้ถูกติ๊ก* เก็บไว้ใน session_state โดยเทียบจากข้อมูลเดิม
                 indices_to_delete = selected_rows.index.tolist()
-                # แปลงกลับเป็นแถวใน df หลัก
                 original_rows_to_delete = df.iloc[indices_to_delete]
                 
-                # กรองเอาเฉพาะข้อมูลที่ไม่ตรงกับแถวที่จะลบออก
-                updated_list = []
-                for idx, item in enumerate(st.session_state.appointments_data):
-                    # เช็คเทียบความเหมือนจากค่าในดิบ
-                    is_match = False
-                    for _, del_row in original_rows_to_delete.iterrows():
-                        if (item['วันที่นัด_Eng'] == del_row['วันที่นัด_Eng'] and 
-                            item['เวลานัด'] == del_row['เวลานัด'] and 
-                            item['รายการนัด'] == del_row['รายการนัด']):
-                            is_match = True
-                            break
-                    if not is_match:
-                        updated_list.append(item)
-                
-                st.session_state.appointments_data = updated_list
-                st.success(f"🗑️ ลบออกเรียบร้อยแล้ว {len(indices_to_delete)} รายการ")
-                st.rerun()
+                # ลบแถวออกจาก Google Sheet (อิงตาม row index ในชีท โดยบวก 2 เพราะติด Header และเริ่มแถวที่ 2)
+                if sheet_connection is not None:
+                    # ดึงข้อมูลทั้งหมดใหม่เพื่อเทียบแถว
+                    all_records = sheet_connection.get_all_records()
+                    rows_to_delete_indices = []
+                    
+                    for idx, record in enumerate(all_records):
+                        for _, del_row in original_rows_to_delete.iterrows():
+                            if (str(record.get('วันที่นัด_Eng')) == str(del_row['วันที่นัด_Eng']) and 
+                                str(record.get('เวลานัด')) == str(del_row['เวลานัด']) and 
+                                str(record.get('รายการนัด')) == str(del_row['รายการนัด'])):
+                                rows_to_delete_indices.append(idx + 2) # บวก 2 เพราะแถว 1 คือ Header
+                                break
+                    
+                    # ลบจากล่างขึ้นบนเพื่อไม่ให้ index เคลื่อน
+                    for r_idx in sorted(rows_to_delete_indices, reverse=True):
+                        sheet_connection.delete_rows(r_idx)
+                        
+                    st.success(f"🗑️ ลบออกจาก Google Sheets เรียบร้อยแล้ว {len(indices_to_delete)} รายการ")
+                    st.rerun()
             else:
                 st.warning("⚠️ กรุณาติ๊กช่อง 'เลือก' หน้าแถวที่ต้องการลบก่อนครับ")
 
@@ -181,7 +185,7 @@ if len(st.session_state.appointments_data) > 0:
         if st.button("🔄 รีเฟรชข้อมูล"):
             st.rerun()
 else:
-    st.info("📌 ไม่มีรายการนัดหมายในระบบตอนนี้ครับ สามารถกรอกเพิ่มทางซ้ายได้เลยครับ")
+    st.info("📌 กำลังดึงข้อมูลจาก Google Sheets หรือยังไม่มีข้อมูลในระบบครับ")
 
 # ส่วนท้าย
 st.write("---")
