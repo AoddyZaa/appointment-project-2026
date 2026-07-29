@@ -37,39 +37,15 @@ st.markdown("""
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # ฝัง credential dict ตรงๆ ในโค้ด ตัดปัญหาเรื่อง Streamlit Secrets แปลงตัวอักษรเพี้ยน
+    # ใช้กุญแจแบบสตริงยาวบรรทัดเดียว แล้ว replace \n ธรรมดา ชัวร์ที่สุด ไม่เพี้ยน
+    raw_key = "-----BEGIN PRIVATE KEY-----\\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDbyPC+T8YvWZUE\\nbH2DU34q1+1MEAidthIfgfA91/pPUAl4zCe9wof/1m61PRunpht/dVOJOMwSxsdp\\nwvL+2/UXwRHjIlxcDg11PKGvE4st7tX8Igg/ZW74FnBGrMU/VkOikMSRWmxkTNti\\n8ZGnpPgGGjVIo0M2XDs/ne4zOU2XdSU6EEVGh3nRuJ2pg62nVsfd8gbNIPhnvAMF\\nU2/Fxpd9yx+L6YXv6Dd7Z6gB09pUyXkvdvBCBimNhAMHQl8SuTJpW6yZrn41wCkZ\\ndCfdBriO772gf0TuIVpB6gRepWhD+bkReFQ1j7LtZ/5d1J0/sLOAH0in+wsA1MOg\\njov5ZL29AgMBAAECggEASqr8pxtBEGsVzy06gvhFn9aV5sZ3tuTZSV0Cum/6uSFO\\n5nwtcDl7rL40BFzLXWyAYRACHldudV6U9uhlV5JwtO5B3nGZASlBBzhfEbTJDwTa\\nK/t/49HZHm25HTmrFXaAKeWW8m7O7lByJC4/tr3ECYaz3Yah2gEBm/5So5JvOunP\\nMHfulIPNkEhJX+AdFjI8La7ulBoq0GwTSGKAsYbGeseMZYkT9gjesA9/oKhrxsyh\\nTc0MFJHC7pLzsKnLruq+aDQsAE9G6/i+8MPJ3xYsCcGSYUTQZ1r/Vh0JCZXFgTSQ\\nXfkEvcMzZNCTC6Rh9v6aJDTjE3mcF4g/rFnWB8HgnQKBgQD4cIARv6oeVPGfw814\\ns4+zTmRsoZeSji8jkfgQoYGKsgS1se8d/ZhidJoJTkXBKh4rxRvLBzqOlVfcp+2M\\nQZFotV0iPnT7bVENrt4p4cldhvL9dID8/i3vC2k/Ano+nyP1Qw9XNtuYb/IrFIN+\\n2vXUcePQa96fk9m99GV9Brq2vwKBgQDieTQLmeCzzTHy6jx9qUSNXqm2JNv/3lK7\\nReWWK43R5cV66dEWp8L5lzD3D4mWDdD6z1CUi4Asb8Na9ODl5TD4kaqgbT0VhA9d\\niOLKYWLfJ21NPbKg+Y73KeWmx7Lny7417Y2rdF+Us2K3rXJl5+cRSr7IltgjhyVS\\nCNDal19GgwKBgQDHlkms+JeIqqE6wqjNcSPe3vmas+77FDMWlmv9oGJbtExIU9xP\\n8a18W0RseW9ckaOPclizsOkAJ0ZgxJ/4b6yLvDhIDHkajGXzYiqk5vlIo+OObww5\\nM1JfmoFA15KxwFO489jdLfsY6cZZia9iODIKLDzi8eX1uWfSTQdDfCaALQKBgQCs\\n5Z0/MhXjDseQTRUrVjuYtelYviEa4S9F+6HAGLYnxYQTR0gyRJdMlwlxxHHkld2y\\nbO12yl1rD1QUL5k2ydeuHP8nhN46e9yDKwsBOIIUHXSLoIur63oi5eCGiDTkU55+\\na0JZ3/lMe/rkgU0x0W6NvAOU/dw6m2V5kHNqPmAlYwKBgA7TVlw+rW+eWKnzM+ac\\nhp+VGDXS3Xdjw/Y40DOaMgp5J2PsVr2iA7hh+3er4scV/4J49B1bxm5q0IjEedJd\\nrqPUM+Q+BzVN6lQUnQ5wmMD1Wqkq/0c5wupkauccV2Cq5LcMLndvrPVueS9qPl9o\\nCauyS9O95fkSW53AbfA6s8Lz\\n-----END PRIVATE KEY-----"
+    formatted_key = raw_key.replace("\\n", "\n")
+
     creds_dict = {
         "type": "service_account",
         "project_id": "appointment2026",
         "private_key_id": "a63d42d30b864ec1233777bedb23b8598dee",
-        "private_key": """-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDbyPC+T8YvWZUE
-bH2DU34q1+1MEAidthIfgfA91/pPUAl4zCe9wof/1m61PRunpht/dVOJOMwSxsdp
-wvL+2/UXwRHjIlxcDg11PKGvE4st7tX8Igg/ZW74FnBGrMU/VkOikMSRWmxkTNti
-8ZGnpPgGGjVIo0M2XDs/ne4zOU2XdSU6EEVGh3nRuJ2pg62nVsfd8gbNIPhnvAMF
-U2/Fxpd9yx+L6YXv6Dd7Z6gB09pUyXkvdvBCBimNhAMHQl8SuTJpW6yZrn41wCkZ
-dCfdBriO772gf0TuIVpB6gRepWhD+bkReFQ1j7LtZ/5d1J0/sLOAH0in+wsA1MOg
-jov5ZL29AgMBAAECggEASqr8pxtBEGsVzy06gvhFn9aV5sZ3tuTZSV0Cum/6uSFO
-5nwtcDl7rL40BFzLXWyAYRACHldudV6U9uhlV5JwtO5B3nGZASlBBzhfEbTJDwTa
-K/t/49HZHm25HTmrFXaAKeWW8m7O7lByJC4/tr3ECYaz3Yah2gEBm/5So5JvOunP
-MHfulIPNkEhJX+AdFjI8La7ulBoq0GwTSGKAsYbGeseMZYkT9gjesA9/oKhrxsyh
-Tc0MFJHC7pLzsKnLruq+aDQsAE9G6/i+8MPJ3xYsCcGSYUTQZ1r/Vh0JCZXFgTSQ
-XfkEvcMzZNCTC6Rh9v6aJDTjE3mcF4g/rFnWB8HgnQKBgQD4cIARv6oeVPGfw814
-s4+zTmRsoZeSji8jkfgQoYGKsgS1se8d/ZhidJoJTkXBKh4rxRvLBzqOlVfcp+2M
-QZFotV0iPnT7bVENrt4p4cldhvL9dID8/i3vC2k/Ano+nyP1Qw9XNtuYb/IrFIN+
-2vXUcePQa96fk9m99GV9Brq2vwKBgQDieTQLmeCzzTHy6jx9qUSNXqm2JNv/3lK7
-ReWWK43R5cV66dEWp8L5lzD3D4mWDdD6z1CUi4Asb8Na9ODl5TD4kaqgbT0VhA9d
-iOLKYWLfJ21NPbKg+Y73KeWmx7Lny7417Y2rdF+Us2K3rXJl5+cRSr7IltgjhyVS
-CNDal19GgwKBgQDHlkms+JeIqqE6wqjNcSPe3vmas+77FDMWlmv9oGJbtExIU9xP
-8a18W0RseW9ckaOPclizsOkAJ0ZgxJ/4b6yLvDhIDHkajGXzYiqk5vlIo+OObww5
-M1JfmoFA15KxwFO489jdLfsY6cZZia9iODIKLDzi8eX1uWfSTQdDfCaALQKBgQCs
-5Z0/MhXjDseQTRUrVjuYtelYviEa4S9F+6HAGLYnxYQTR0gyRJdMlwlxxHHkld2y
-bO12yl1rD1QUL5k2ydeuHP8nhN46e9yDKwsBOIIUHXSLoIur63oi5eCGiDTkU55+
-a0JZ3/lMe/rkgU0x0W6NvAOU/dw6m2V5kHNqPmAlYwKBgA7TVlw+rW+eWKnzM+ac
-hp+VGDXS3Xdjw/Y40DOaMgp5J2PsVr2iA7hh+3er4scV/4J49B1bxm5q0IjEedJd
-rqPUM+Q+BzVN6lQUnQ5wmMD1Wqkq/0c5wupkauccV2Cq5LcMLndvrPVueS9qPl9o
-CauyS9O95fkSW53AbfA6s8Lz
------END PRIVATE KEY-----""",
+        "private_key": formatted_key,
         "client_email": "appointment-bot@appointment2026.iam.gserviceaccount.com",
         "client_id": "108634656719463519344",
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
