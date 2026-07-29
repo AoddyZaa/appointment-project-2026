@@ -9,15 +9,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# 🎨 ธีมสีสดใส สไตล์โมเดิร์น
+# 🎨 ธีมสีเหลืองทองสุดพรีเมียม สไตล์โมเดิร์น
 st.markdown("""
     <style>
     .main {
-        background-color: #F8F9FA;
+        background-color: #FFFDF9;
     }
+    /* ปรับแต่งปุ่มกดให้เป็นโทนสีเหลืองทอง/ส้มอบอุ่น */
     .stButton>button {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
-        color: white;
+        background: linear-gradient(135deg, #F39C12 0%, #F1C40F 100%);
+        color: #2C3E50;
         font-weight: bold;
         border-radius: 12px;
         padding: 0.6rem 1.2rem;
@@ -26,13 +27,18 @@ st.markdown("""
         transition: 0.3s;
     }
     .stButton>button:hover {
-        background: linear-gradient(135deg, #FF5252 0%, #FF7043 100%);
+        background: linear-gradient(135deg, #D68910 0%, #F39C12 100%);
         box-shadow: 0 6px 8px rgba(0,0,0,0.15);
         transform: translateY(-2px);
+        color: white;
     }
     h1, h2, h3 {
-        color: #2C3E50;
+        color: #B7950B;
         font-family: 'Prompt', sans-serif;
+    }
+    /* แต่ง Sidebar ให้เข้ากับธีมเหลืองทอง */
+    [data-testid="stSidebar"] {
+        background-color: #FEF9E7;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -48,8 +54,6 @@ def format_thai_date(date_obj):
         date_obj = datetime.strptime(date_obj, '%Y-%m-%d')
     day = date_obj.day
     month = thai_months[date_obj.month]
-    year = date_obj.year + 543  - 2000 + 2000 # แปลงเป็น พ.ศ. (ค.ศ. + 543)
-    # หรือถ้าอยากให้แสดงปีเต็ม (เช่น 2569) ใช้ year + 543 ตรงๆ ได้เลยครับ
     thai_year = date_obj.year + 543
     return f"{day} {month} {thai_year}"
 
@@ -82,77 +86,93 @@ st.markdown("<h1>📅 ระบบบันทึกและจัดการ�
 st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>แสดงรายการนัดหมาย (รูปแบบวันที่ไทย) เรียงตามวันและเวลา พร้อมช่องเลือกจัดการ</p>", unsafe_allow_html=True)
 st.write("---")
 
-# จำลองข้อมูลตัวอย่าง
-raw_data = [
-    {
-        "เลือก": False,
-        "วันที่นัด_Eng": "2026-06-01",
-        "เวลานัด": "09:00", 
-        "รายการนัด": "นัดเก่าที่ผ่านมาแล้ว", 
-        "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ที่เก่า", "เบอร์โทร": "081-111-1111", "หมายเหตุ": "-"
-    },
-    {
-        "เลือก": False,
-        "วันที่นัด_Eng": "2026-08-01",
-        "เวลานัด": "14:30", 
-        "รายการนัด": "จ่ายค่าน้ำค่าไฟ", 
-        "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ส่วนตัว", "สถานที่": "การไฟฟ้า", "เบอร์โทร": "089-876-5432", "หมายเหตุ": "กำหนดจ่ายวันสุดท้าย"
-    },
-    {
-        "เลือก": False,
-        "วันที่นัด_Eng": "2026-07-30",
-        "เวลานัด": "10:00", 
-        "รายการนัด": "ประชุมวางแผนโปรเจกต์", 
-        "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ห้องประชุม A", "เบอร์โทร": "081-234-5678", "หมายเหตุ": "เตรียมเอกสารไปด้วย"
-    }
-]
+# กำหนด Session State สำหรับเก็บข้อมูลตาราง (เพื่อให้พอกดลบแล้วข้อมูลหายจริง)
+if 'appointments_data' not in st.session_state:
+    st.session_state.appointments_data = [
+        {
+            "เลือก": False,
+            "วันที่นัด_Eng": "2026-06-01",
+            "เวลานัด": "09:00", 
+            "รายการนัด": "นัดเก่าที่ผ่านมาแล้ว", 
+            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ที่เก่า", "เบอร์โทร": "081-111-1111", "หมายเหตุ": "-"
+        },
+        {
+            "เลือก": False,
+            "วันที่นัด_Eng": "2026-08-01",
+            "เวลานัด": "14:30", 
+            "รายการนัด": "จ่ายค่าน้ำค่าไฟ", 
+            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ส่วนตัว", "สถานที่": "การไฟฟ้า", "เบอร์โทร": "089-876-5432", "หมายเหตุ": "กำหนดจ่ายวันสุดท้าย"
+        },
+        {
+            "เลือก": False,
+            "วันที่นัด_Eng": "2026-07-30",
+            "เวลานัด": "10:00", 
+            "รายการนัด": "ประชุมวางแผนโปรเจกต์", 
+            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ห้องประชุม A", "เบอร์โทร": "081-234-5678", "หมายเหตุ": "เตรียมเอกสารไปด้วย"
+        }
+    ]
 
-df = pd.DataFrame(raw_data)
+df = pd.DataFrame(st.session_state.appointments_data)
 
-# 🧹 1. กรองเฉพาะวันที่ยังไม่ผ่านมา (>= วันนี้)
-today_str = datetime.today().strftime('%Y-%m-%d')
-df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
-df = df[df['tmp_date'] >= today_str]
+if not df.empty:
+    # 🧹 1. กรองเฉพาะวันที่ยังไม่ผ่านมา (>= วันนี้)
+    today_str = datetime.today().strftime('%Y-%m-%d')
+    df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
+    df = df[df['tmp_date'] >= today_str]
 
-# ⏱️ 2. เรียงลำดับตามวันที่และเวลา
-df = df.sort_values(by=['tmp_date', 'เวลานัด'])
+    # ⏱️ 2. เรียงลำดับตามวันที่และเวลา
+    df = df.sort_values(by=['tmp_date', 'เวลานัด'])
 
-# 🇹🇭 3. แปลงวันที่ให้อยู่ในรูปบบไทยสำหรับแสดงผลในตาราง
-df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
+    # 🇹🇭 3. แปลงวันที่ให้อยู่ในรูปแบบไทยสำหรับแสดงผลในตาราง
+    df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
 
-# จัดเรียงคอลัมน์ใหม่ให้สวยงาม (ซ่อนคอลัมน์ดิบ Eng)
-display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']]
+    # จัดเรียงคอลัมน์ใหม่ให้สวยงาม
+    display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']].copy()
 
-# 📊 4. แสดงตารางแบบมี Checkbox
-edited_df = st.data_editor(
-    display_df,
-    use_container_width=True,
-    hide_index=True,
-    num_rows="fixed",
-    column_config={
-        "เลือก": st.column_config.CheckboxColumn(
-            "☑️ เลือก",
-            help="ติ๊กเลือกแถวที่ต้องการลบหรือแก้ไข",
-            default=False,
-        )
-    },
-    height=400
-)
+    # 📊 4. แสดงตารางแบบมี Checkbox ให้ติ๊ก
+    edited_df = st.data_editor(
+        display_df,
+        use_container_width=True,
+        hide_index=True,
+        num_rows="fixed",
+        column_config={
+            "เลือก": st.column_config.CheckboxColumn(
+                "☑️ เลือก",
+                help="ติ๊กเลือกแถวที่ต้องการลบ",
+                default=False,
+            )
+        },
+        height=400
+    )
 
-# ปุ่มจัดการรายการที่ติ๊กเลือก
-col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
-with col_btn1:
-    if st.button("🗑️ ลบรายการที่เลือก"):
-        selected_rows = edited_df[edited_df["เลือก"] == True]
-        if not selected_rows.empty:
-            st.success(f"🗑️ ลบออกเรียบร้อยแล้ว {len(selected_rows)} รายการ")
-        else:
-            st.warning("⚠️ กรุณาติ๊กช่อง 'เลือก' หน้าแถวที่ต้องการลบก่อนครับ")
+    # ปุ่มจัดการรายการที่ติ๊กเลือก
+    col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
+    with col_btn1:
+        if st.button("🗑️ ลบรายการที่เลือก"):
+            # เช็คว่าในตารางที่มีการแก้ไข มีแถวไหนถูกติ๊กเลือกเป็น True บ้าง
+            selected_rows_indices = edited_df[edited_df["เลือก"] == True].index
+            
+            if len(selected_rows_indices) > 0:
+                # แปลง index ของ display_df กลับไปตัดข้อมูลใน st.session_state.appointments_data
+                original_indices_to_drop = df.iloc[selected_rows_indices].index
+                
+                # ลบข้อมูลออกจาก session state
+                st.session_state.appointments_data = [
+                    item for i, item in enumerate(st.session_state.appointments_data) 
+                    if i not in original_indices_to_drop
+                ]
+                
+                st.success(f"🗑️ ลบออกเรียบร้อยแล้ว {len(selected_rows_indices)} รายการ")
+                st.rerun() # สั่งรีเฟรชหน้าจอทันทีเพื่อให้ตารางอัปเดตข้อมูลหายไป
+            else:
+                st.warning("⚠️ กรุณาติ๊กช่อง 'เลือก' หน้าแถวที่ต้องการลบก่อนครับ")
 
-with col_btn2:
-    if st.button("🔄 รีเฟรชข้อมูล"):
-        st.rerun()
+    with col_btn2:
+        if st.button("🔄 รีเฟรชข้อมูล"):
+            st.rerun()
+else:
+    st.info("📌 ไม่มีรายการนัดหมายในระบบตอนนี้ครับ")
 
 # ส่วนท้าย
 st.write("---")
-st.markdown("<p style='text-align: center; color: #BDC3C7;'>Developed with ❤️ for Khun Adul | Appointment Project 2026</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #B7950B;'>Developed with 💛 for Khun Adul | Appointment Project 2026</p>", unsafe_allow_html=True)
