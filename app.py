@@ -2,14 +2,14 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# ตั้งค่าหน้าเว็บให้เป็นแบบ Wide Mode เพื่อความกว้างสบายตา
+# ตั้งค่าหน้าเว็บ
 st.set_page_config(
     page_title="ระบบบันทึกและแจ้งเตือนนัดหมาย",
     page_icon="📅",
     layout="wide"
 )
 
-# 🎨 ตกแต่งธีมสีสดใส สไตล์โมเดิร์นด้วย Custom CSS
+# 🎨 ตกแต่งธีมสีสดใส สไตล์โมเดิร์น
 st.markdown("""
     <style>
     .main {
@@ -34,53 +34,53 @@ st.markdown("""
         color: #2C3E50;
         font-family: 'Prompt', sans-serif;
     }
-    .card {
-        background-color: white;
-        padding: 25px;
-        border-radius: 16px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# หัวข้อแอปพลิเคชัน
-st.markdown("<h1>📅 ระบบบันทึกและจัดการนัดหมาย</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>บันทึกข้อมูลนัดหมาย จัดการง่าย ไม่หลุดหาย พร้อมระบบเตือนความจำ</p>", unsafe_allow_html=True)
-st.write("---")
+# 🧭 เมนูด้านข้าง (Sidebar) สำหรับเลือกหน้าจอ (กดซ่อน/ขยายได้ด้วยปุ่มลูกศรสามขีดด้านบนซ้าย)
+st.sidebar.markdown("<h2>⚙️ เมนูหลัก</h2>", unsafe_allow_html=True)
+menu = st.sidebar.radio(
+    "เลือกการใช้งาน:",
+    ["📌 บันทึกนัดหมายใหม่", "📋 ดูรายการนัดหมายทั้งหมด"]
+)
 
-# แบ่งหน้าจอเป็น 2 ฝั่ง (ซ้ายกรอกข้อมูล / ขวาแสดงตาราง)
-left_col, right_col = st.columns([1, 1.5], gap="large")
+st.sidebar.write("---")
+st.sidebar.info("💡 ทริค: กดปุ่มลูกศร `>` หรือขีดสามขีดมุมซ้ายบน เพื่อซ่อน/ขยายแถบเมนูนี้ได้ครับ")
 
-with left_col:
-    st.markdown("### 📝 บันทึกนัดหมายใหม่")
-    with st.container():
-        # ฟอร์มกรอกข้อมูล
-        with st.form("appointment_form", clear_on_submit=True):
-            title = st.text_input("📌 หัวข้อ / เรื่องที่นัดหมาย", placeholder="เช่น ประชุมงาน, หาหมอ, จ่ายบิล")
-            
-            col_date, col_time = st.columns(2)
-            with col_date:
-                app_date = st.date_input("🗓️ วันที่นัดหมาย", value=datetime.today())
-            with col_time:
-                app_time = st.time_input("⏰เวลานัดหมาย")
-                
-            category = st.selectbox("🏷️ หมวดหมู่", ["งานด่วน", "ธุระส่วนตัว", "การเงิน/บิล", "ประชุม/งานทั่วไป"])
-            description = st.text_area("📄 รายละเอียดเพิ่มเติม", placeholder="ระบุรายละเอียดเพิ่มเติมที่นี่...")
-            
-            submitted = st.form_submit_button("💾 บันทึกข้อมูลนัดหมาย")
-            
-            if submitted:
-                if title:
-                    # ตัวอย่างจำลองการบันทึก (สามารถเชื่อมต่อ Google Sheets ตรงนี้ได้เลยครับ)
-                    st.success(f"🎉 บันทึกนัดหมาย '{title}' เรียบร้อยแล้วครับ!")
-                    # โค้ดบันทึกลง Google Sheets จะใส่เพิ่มตรงจุดนี้ครับ
-                else:
-                    st.error("⚠️ กรุณากรอกหัวข้อเรื่องนัดหมายด้วยครับ!")
+# ================= 1. หน้าฟอร์มบันทึกนัดหมายใหม่ =================
+if menu == "📌 บันทึกนัดหมายใหม่":
+    st.markdown("<h1>📅 บันทึกนัดหมายใหม่</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>กรอกข้อมูลนัดหมายของคุณด้านล่างนี้ได้เลยครับ</p>", unsafe_allow_html=True)
+    st.write("---")
 
-with right_col:
-    st.markdown("### 📋 รายการนัดหมายทั้งหมดในระบบ")
+    # จัดฟอร์มให้อยู่100% เต็มจอแบบสวยงาม
+    with st.form("appointment_form", clear_on_submit=True):
+        title = st.text_input("📌 หัวข้อ / เรื่องที่นัดหมาย", placeholder="เช่น ประชุมงาน, หาหมอ, จ่ายบิล")
+        
+        col_date, col_time = st.columns(2)
+        with col_date:
+            app_date = st.date_input("🗓️ วันที่นัดหมาย", value=datetime.today())
+        with col_time:
+            app_time = st.time_input("⏰เวลานัดหมาย")
+            
+        category = st.selectbox("🏷️ หมวดหมู่", ["งานด่วน", "ธุระส่วนตัว", "การเงิน/บิล", "ประชุม/งานทั่วไป"])
+        description = st.text_area("📄 รายละเอียดเพิ่มเติม", placeholder="ระบุรายละเอียดเพิ่มเติมที่นี่...")
+        
+        submitted = st.form_submit_button("💾 บันทึกข้อมูลนัดหมาย")
+        
+        if submitted:
+            if title:
+                st.success(f"🎉 บันทึกนัดหมาย '{title}' เรียบร้อยแล้วครับ!")
+            else:
+                st.error("⚠️ กรุณากรอกหัวข้อเรื่องนัดหมายด้วยครับ!")
+
+# ================= 2. หน้าแสดงรายการตารางทั้งหมด =================
+elif menu == "📋 ดูรายการนัดหมายทั้งหมด":
+    st.markdown("<h1>📋 รายการนัดหมายทั้งหมดในระบบ</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>ตรวจสอบและจัดการรายการนัดหมายทั้งหมดของคุณที่นี่</p>", unsafe_allow_html=True)
+    st.write("---")
     
-    # จำลองข้อมูลตารางสวยๆ (เมื่อต่อ Google Sheets แล้ว ข้อมูลจะดึงมาแสดงตรงนี้อัตโนมัติครับ)
+    # จำลองข้อมูลตาราง (สามารถดึงจาก Google Sheets มาใส่ตรงนี้ได้เลย)
     sample_data = [
         {"วันที่": "2026-07-30", "เวลา": "10:00", "หัวข้อ": "ประชุมวางแผนโปรเจกต์", "หมวดหมู่": "งานด่วน", "สถานะ": "รอแจ้งเตือน"},
         {"วันที่": "2026-08-01", "เวลา": "14:30", "หัวข้อ": "จ่ายค่าน้ำค่าไฟ", "หมวดหมู่": "การเงิน/บิล", "สถานะ": "รอแจ้งเตือน"},
@@ -89,11 +89,10 @@ with right_col:
     
     df = pd.DataFrame(sample_data)
     
-    # แสดงตารางแบบสวยงาม
-    st.dataframe(df, use_container_width=True, height=400)
+    # แสดงตารางแบบเต็มจอ
+    st.dataframe(df, use_container_width=True, height=450)
     
-    # ปุ่มเสริมสำหรับจัดการข้อมูล
-    col_btn1, col_btn2 = st.columns(2)
+    col_btn1, col_btn2, col_spacer = st.columns([1, 1, 2])
     with col_btn1:
         if st.button("🔄 รีเฟรชข้อมูล"):
             st.rerun()
