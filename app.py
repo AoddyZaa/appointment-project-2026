@@ -39,15 +39,12 @@ st.markdown("""
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # ดึงค่า Private Key และแปลงเครื่องหมาย \n ให้ถูกต้องป้องกัน Error Invalid private_key
-    raw_key = st.secrets["gcp_service_account"]["private_key"]
-    formatted_key = raw_key.replace("\\n", "\n")
-    
+    # ดึงค่า Private Key ไปใช้ตรงๆ ไม่ต้อง replace \n แล้ว เพราะใน secrets ใส่เป็นสตริงยาวพร้อม \n ไว้แล้ว
     creds_dict = {
         "type": st.secrets["gcp_service_account"]["type"],
         "project_id": st.secrets["gcp_service_account"]["project_id"],
         "private_key_id": st.secrets["gcp_service_account"]["private_key_id"],
-        "private_key": formatted_key,
+        "private_key": st.secrets["gcp_service_account"]["private_key"],
         "client_email": st.secrets["gcp_service_account"]["client_email"],
         "client_id": st.secrets["gcp_service_account"]["client_id"],
         "auth_uri": st.secrets["gcp_service_account"]["auth_uri"],
