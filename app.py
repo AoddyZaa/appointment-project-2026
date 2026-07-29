@@ -4,68 +4,35 @@ from datetime import datetime
 import gspread
 from google.oauth2.service_account import Credentials
 
-# ตั้งค่าหน้าเว็บแบบ Wide Mode
-st.set_page_config(
-    page_title="ระบบบันทึกและแจ้งเตือนนัดหมาย",
-    page_icon="📅",
-    layout="wide"
-)
+st.set_page_config(page_title="ระบบบันทึกและแจ้งเตือนนัดหมาย", page_icon="📅", layout="wide")
 
-# 🎨 ธีมสีเหลืองทองสุดพรีเมียม สไตล์โมเดิร์น
 st.markdown("""
     <style>
-    .main {
-        background-color: #FFFDF9;
-    }
+    .main { background-color: #FFFDF9; }
     .stButton>button {
         background: linear-gradient(135deg, #F39C12 0%, #F1C40F 100%);
-        color: #2C3E50;
-        font-weight: bold;
-        border-radius: 12px;
-        padding: 0.6rem 1.2rem;
-        border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        transition: 0.3s;
+        color: #2C3E50; font-weight: bold; border-radius: 12px; padding: 0.6rem 1.2rem; border: none;
     }
-    .stButton>button:hover {
-        background: linear-gradient(135deg, #D68910 0%, #F39C12 100%);
-        box-shadow: 0 6px 8px rgba(0,0,0,0.15);
-        transform: translateY(-2px);
-        color: white;
-    }
-    h1, h2, h3 {
-        color: #B7950B;
-        font-family: 'Prompt', sans-serif;
-    }
-    [data-testid="stSidebar"] {
-        background-color: #FEF9E7;
-    }
+    h1, h2, h3 { color: #B7950B; font-family: 'Prompt', sans-serif; }
+    [data-testid="stSidebar"] { background-color: #FEF9E7; }
     </style>
 """, unsafe_allow_html=True)
 
-# 📅 ฟังก์ชันแปลงวันที่ ค.ศ. เป็น วันที่ไทย
-thai_months = {
-    1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.",
-    7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."
-}
+thai_months = {1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.", 7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."}
 
 def format_thai_date(date_obj):
     if isinstance(date_obj, str):
         date_obj = datetime.strptime(date_obj, '%Y-%m-%d')
-    day = date_obj.day
-    month = thai_months[date_obj.month]
-    thai_year = date_obj.year + 543
-    return f"{day} {month} {thai_year}"
+    return f"{date_obj.day} {thai_months[date_obj.month]} {date_obj.year + 543}"
 
-# ================= 🔗 ฟังก์ชันเชื่อมต่อ Google Sheets (แบบใช้ไฟล์ JSON ตรงๆ) =================
+# เชื่อมต่อผ่าน st.secrets
 def get_google_sheet_data():
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        # อ่านจากไฟล์ credentials.json ในโฟลเดอร์โปรเจกต์โดยตรง
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
-        client = gspread.authorize(creds)
+        creds_dict = dict(st.secrets["gspread"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(crez := creds)
         
-        # เปิดไฟล์ Google Sheet ชื่อ AppointmentDB
         sheet = client.open("AppointmentDB").sheet1
         data = sheet.get_all_records()
         return sheet, pd.DataFrame(data)
@@ -73,14 +40,9 @@ def get_google_sheet_data():
         st.error(f"⚠️ ไม่สามารถเชื่อมต่อ Google Sheets ได้: {e}")
         return None, pd.DataFrame()
 
-# โหลดข้อมูลจาก Google Sheet
 sheet_connection, df_remote = get_google_sheet_data()
 
-# ================= 📝 ฟอร์มกรอกข้อมูล (อยู่ใน Sidebar) =================
 st.sidebar.markdown("<h2>📌 บันทึกนัดหมายใหม่</h2>", unsafe_allow_html=True)
-st.sidebar.markdown("<p style='color: #7F8C8D; font-size: 14px;'>กรอกข้อมูลด้านซ้าย แล้วกดพับซ่อนเมนูก้างปลาเพื่อดูตารางเต็มจอได้ครับ</p>", unsafe_allow_html=True)
-st.sidebar.write("---")
-
 with st.sidebar.form("appointment_form", clear_on_submit=True):
     app_date = st.date_input("🗓️ วันที่นัด", value=datetime.today())
     app_time = st.time_input("⏰ เวลานัด")
@@ -92,7 +54,6 @@ with st.sidebar.form("appointment_form", clear_on_submit=True):
     note = st.text_area("📄 หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...")
     
     submitted = st.form_submit_button("💾 บันทึกข้อมูลนัดหมาย")
-    
     if submitted:
         if title:
             new_row = [
@@ -105,79 +66,43 @@ with st.sidebar.form("appointment_form", clear_on_submit=True):
                 phone if phone else "-",
                 note if note else "-"
             ]
-            
             if sheet_connection is not None:
                 sheet_connection.append_row(new_row)
-                st.sidebar.success(f"🎉 บันทึก '{title}' ลง Google Sheets เรียบร้อย!")
+                st.sidebar.success(f"🎉 บันทึก '{title}' เรียบร้อย!")
                 st.rerun()
-            else:
-                st.sidebar.error("⚠️ ยังไม่ได้เชื่อมต่อไฟล์ Google Sheet จริง")
         else:
             st.sidebar.error("⚠️ กรุณากรอกรายการนัดด้วยครับ!")
 
-# ================= 📋 หน้าจอหลัก: แสดงตารางรายการนัดหมาย =================
 st.markdown("<h1>📅 ระบบบันทึกและจัดการนัดหมาย</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>แสดงรายการนัดหมายจาก Google Sheets (รูปแบบวันที่ไทย) เรียงตามวันและเวลา พร้อมช่องเลือกจัดการ</p>", unsafe_allow_html=True)
 st.write("---")
 
 if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.columns:
     df = df_remote.copy()
     df['เลือก'] = False
-    
     df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
     df = df.sort_values(by=['tmp_date', 'เวลานัด']).reset_index(drop=True)
     df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
 
     display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']].copy()
 
-    edited_df = st.data_editor(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        num_rows="fixed",
-        column_config={
-            "เลือก": st.column_config.CheckboxColumn(
-                "☑️ เลือก",
-                help="ติ๊กเลือกแถวที่ต้องการลบ",
-                default=False,
-            )
-        },
-        height=400
-    )
+    edited_df = st.data_editor(display_df, use_container_width=True, hide_index=True, num_rows="fixed",
+        column_config={"เลือก": st.column_config.CheckboxColumn("☑️ เลือก", default=False)}, height=400)
 
-    col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
-    with col_btn1:
-        if st.button("🗑️ ลบรายการที่เลือก"):
-            selected_rows = edited_df[edited_df["เลือก"] == True]
-            if not selected_rows.empty:
-                indices_to_delete = selected_rows.index.tolist()
-                original_rows_to_delete = df.iloc[indices_to_delete]
-                
-                if sheet_connection is not None:
-                    all_records = sheet_connection.get_all_records()
-                    rows_to_delete_indices = []
-                    
-                    for idx, record in enumerate(all_records):
-                        for _, del_row in original_rows_to_delete.iterrows():
-                            if (str(record.get('วันที่นัด_Eng')) == str(del_row['วันที่นัด_Eng']) and 
-                                str(record.get('เวลานัด')) == str(del_row['เวลานัด']) and 
-                                str(record.get('รายการนัด')) == str(del_row['รายการนัด'])):
-                                rows_to_delete_indices.append(idx + 2)
-                                break
-                    
-                    for r_idx in sorted(rows_to_delete_indices, reverse=True):
-                        sheet_connection.delete_rows(r_idx)
-                        
-                    st.success(f"🗑️ ลบออกจาก Google Sheets เรียบร้อยแล้ว {len(indices_to_delete)} รายการ")
-                    st.rerun()
-            else:
-                st.warning("⚠️ กรุณาติ๊กช่อง 'เลือก' หน้าแถวที่ต้องการลบก่อนครับ")
-
-    with col_btn2:
-        if st.button("🔄 รีเฟรชข้อมูล"):
+    if st.button("🗑️ ลบรายการที่เลือก"):
+        selected_rows = edited_df[edited_df["เลือก"] == True]
+        if not selected_rows.empty and sheet_connection is not None:
+            all_records = sheet_connection.get_all_records()
+            rows_to_delete_indices = []
+            for idx, record in enumerate(all_records):
+                for _, del_row in selected_rows.iterrows():
+                    if (str(record.get('วันที่นัด_Eng')) == str(del_row['วันที่นัด_Eng']) and 
+                        str(record.get('เวลานัด')) == str(del_row['เวลานัด']) and 
+                        str(record.get('รายการนัด')) == str(del_row['รายการนัด'])):
+                        rows_to_delete_indices.append(idx + 2)
+                        break
+            for r_idx in sorted(rows_to_delete_indices, reverse=True):
+                sheet_connection.delete_rows(r_idx)
+            st.success("🗑️ ลบข้อมูลเรียบร้อย!")
             st.rerun()
 else:
     st.info("📌 กำลังดึงข้อมูลจาก Google Sheets หรือยังไม่มีข้อมูลในระบบครับ")
-
-st.write("---")
-st.markdown("<p style='text-align: center; color: #B7950B;'>Developed with 💛 for Khun Adul | Appointment Project 2026</p>", unsafe_allow_html=True)
