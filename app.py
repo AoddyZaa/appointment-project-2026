@@ -57,20 +57,19 @@ def format_thai_date(date_obj):
     thai_year = date_obj.year + 543
     return f"{day} {month} {thai_year}"
 
-# ================= 🔗 ฟังก์ชันเชื่อมต่อ Google Sheets =================
+# ================= 🔗 ฟังก์ชันเชื่อมต่อ Google Sheets (แบบใช้ไฟล์ JSON ตรงๆ) =================
 def get_google_sheet_data():
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = dict(st.secrets["gpex"])
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        # อ่านจากไฟล์ credentials.json ในโฟลเดอร์โปรเจกต์โดยตรง
+        creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
         client = gspread.authorize(creds)
         
-        # เปิดไฟล์ Google Sheet ชื่อ AppointmentDB (หรือปรับชื่อตามจริง)
+        # เปิดไฟล์ Google Sheet ชื่อ AppointmentDB
         sheet = client.open("AppointmentDB").sheet1
         data = sheet.get_all_records()
         return sheet, pd.DataFrame(data)
     except Exception as e:
-        # กรณีดึงไม่ได้ หรือยังไม่ได้ตั้งค่า Secrets ให้ใช้ข้อมูลจำลองสำรองไว้ก่อน
         st.error(f"⚠️ ไม่สามารถเชื่อมต่อ Google Sheets ได้: {e}")
         return None, pd.DataFrame()
 
@@ -109,7 +108,6 @@ with st.sidebar.form("appointment_form", clear_on_submit=True):
             
             if sheet_connection is not None:
                 sheet_connection.append_row(new_row)
-                formatted_date = format_thai_date(app_date)
                 st.sidebar.success(f"🎉 บันทึก '{title}' ลง Google Sheets เรียบร้อย!")
                 st.rerun()
             else:
@@ -126,14 +124,12 @@ if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.column
     df = df_remote.copy()
     df['เลือก'] = False
     
-    # แปลงวันที่และเรียงลำดับ
     df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
     df = df.sort_values(by=['tmp_date', 'เวลานัด']).reset_index(drop=True)
     df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
 
     display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']].copy()
 
-    # แสดงตาราง
     edited_df = st.data_editor(
         display_df,
         use_container_width=True,
@@ -149,7 +145,6 @@ if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.column
         height=400
     )
 
-    # ปุ่มจัดการลบข้อมูล
     col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
     with col_btn1:
         if st.button("🗑️ ลบรายการที่เลือก"):
@@ -158,9 +153,7 @@ if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.column
                 indices_to_delete = selected_rows.index.tolist()
                 original_rows_to_delete = df.iloc[indices_to_delete]
                 
-                # ลบแถวออกจาก Google Sheet (อิงตาม row index ในชีท โดยบวก 2 เพราะติด Header และเริ่มแถวที่ 2)
                 if sheet_connection is not None:
-                    # ดึงข้อมูลทั้งหมดใหม่เพื่อเทียบแถว
                     all_records = sheet_connection.get_all_records()
                     rows_to_delete_indices = []
                     
@@ -169,10 +162,9 @@ if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.column
                             if (str(record.get('วันที่นัด_Eng')) == str(del_row['วันที่นัด_Eng']) and 
                                 str(record.get('เวลานัด')) == str(del_row['เวลานัด']) and 
                                 str(record.get('รายการนัด')) == str(del_row['รายการนัด'])):
-                                rows_to_delete_indices.append(idx + 2) # บวก 2 เพราะแถว 1 คือ Header
+                                rows_to_delete_indices.append(idx + 2)
                                 break
                     
-                    # ลบจากล่างขึ้นบนเพื่อไม่ให้ index เคลื่อน
                     for r_idx in sorted(rows_to_delete_indices, reverse=True):
                         sheet_connection.delete_rows(r_idx)
                         
@@ -187,6 +179,5 @@ if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.column
 else:
     st.info("📌 กำลังดึงข้อมูลจาก Google Sheets หรือยังไม่มีข้อมูลในระบบครับ")
 
-# ส่วนท้าย
 st.write("---")
 st.markdown("<p style='text-align: center; color: #B7950B;'>Developed with 💛 for Khun Adul | Appointment Project 2026</p>", unsafe_allow_html=True)
