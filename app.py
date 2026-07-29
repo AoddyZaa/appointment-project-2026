@@ -129,7 +129,10 @@ with left_col:
 with right_col:
     st.subheader("📋 รายการนัดหมายทั้งหมดในระบบ")
     try:
-        data = sheet.get_all_records()
+        # แสดงข้อความกำลังโหลดให้เห็นชัดเจน แทนที่จะหมุนติ้วอย่างไร้จุดหมาย
+        with st.spinner("กำลังดึงข้อมูลจาก Google Sheets..."):
+            data = sheet.get_all_records()
+            
         if data:
             df = pd.DataFrame(data)
             st.dataframe(df, use_container_width=True, height=500)
