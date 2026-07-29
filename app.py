@@ -4,13 +4,42 @@ import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
 
-st.set_page_config(page_title="Appointment Project 2026", page_icon="📅", layout="wide")
+# กำหนดค่าหน้าเว็บและธีมสีเหลือง
+st.set_page_config(
+    page_title="Appointment Project 2026",
+    page_icon="📅",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Custom CSS สำหรับปรับแต่งธีมสีเหลือง
+st.markdown("""
+    <style>
+    .main {
+        background-color: #FFFDF0;
+    }
+    .stButton>button {
+        background-color: #FFC107;
+        color: #000000;
+        font-weight: bold;
+        border-radius: 8px;
+        border: none;
+    }
+    .stButton>button:hover {
+        background-color: #FFB300;
+        color: #000000;
+    }
+    h1, h2, h3 {
+        color: #D38312;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 @st.cache_resource
 def init_sheet():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     
-    # ดึงค่าจาก st.secrets แบบตรงๆ ไม่ผ่าน json.loads
+    # ดึงค่า Private Key และแปลงเครื่องหมาย \n ให้ถูกต้องป้องกัน Error Invalid private_key
     raw_key = st.secrets["gcp_service_account"]["private_key"]
     formatted_key = raw_key.replace("\\n", "\n")
     
@@ -43,6 +72,7 @@ except Exception as e:
 st.title("📅 ระบบบันทึกตารางนัดหมาย (Appointment Project 2026)")
 st.markdown("---")
 
+# แบ่งหน้าจอเป็น 2 คอลัมน์ ซ้ายกรอกข้อมูล / ขวาแสดงตาราง
 left_col, right_col = st.columns([1, 1.5], gap="large")
 
 with left_col:
