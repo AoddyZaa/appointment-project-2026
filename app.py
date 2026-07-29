@@ -15,7 +15,6 @@ st.markdown("""
     .main {
         background-color: #FFFDF9;
     }
-    /* ปรับแต่งปุ่มกดให้เป็นโทนสีเหลืองทอง/ส้มอบอุ่น */
     .stButton>button {
         background: linear-gradient(135deg, #F39C12 0%, #F1C40F 100%);
         color: #2C3E50;
@@ -36,14 +35,13 @@ st.markdown("""
         color: #B7950B;
         font-family: 'Prompt', sans-serif;
     }
-    /* แต่ง Sidebar ให้เข้ากับธีมเหลืองทอง */
     [data-testid="stSidebar"] {
         background-color: #FEF9E7;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 📅 ฟังก์ชันแปลงวันที่ ค.ศ. เป็น วันที่ไทย (เช่น 29 ก.ค. 2569)
+# 📅 ฟังก์ชันแปลงวันที่ ค.ศ. เป็น วันที่ไทย
 thai_months = {
     1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.",
     7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."
@@ -57,7 +55,7 @@ def format_thai_date(date_obj):
     thai_year = date_obj.year + 543
     return f"{day} {month} {thai_year}"
 
-# ================= 📝 ฟอร์มกรอกข้อมูล (อยู่ใน Sidebar พับซ่อนได้) =================
+# ================= 📝 ฟอร์มกรอกข้อมูล (อยู่ใน Sidebar) =================
 st.sidebar.markdown("<h2>📌 บันทึกนัดหมายใหม่</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("<p style='color: #7F8C8D; font-size: 14px;'>กรอกข้อมูลด้านซ้าย แล้วกดพับซ่อนเมนูก้างปลาเพื่อดูตารางเต็มจอได้ครับ</p>", unsafe_allow_html=True)
 st.sidebar.write("---")
@@ -76,8 +74,25 @@ with st.sidebar.form("appointment_form", clear_on_submit=True):
     
     if submitted:
         if title:
+            # เพิ่มข้อมูลใหม่เข้าไปใน session_state ทันที
+            new_entry = {
+                "เลือก": False,
+                "วันที่นัด_Eng": app_date.strftime('%Y-%m-%d'),
+                "เวลานัด": app_time.strftime('%H:%M'), 
+                "รายการนัด": title, 
+                "นัดโดย": booked_by if booked_by else "-", 
+                "เจ้าของนัด": owner if owner else "-", 
+                "สถานที่": location if location else "-", 
+                "เบอร์โทร": phone if phone else "-", 
+                "หมายเหตุ": note if note else "-"
+            }
+            if 'appointments_data' not in st.session_state:
+                st.session_state.appointments_data = []
+            st.session_state.appointments_data.append(new_entry)
+            
             formatted_date = format_thai_date(app_date)
             st.success(f"🎉 บันทึก '{title}' (วันที่ {formatted_date}) เรียบร้อย!")
+            st.rerun()
         else:
             st.error("⚠️ กรุณากรอกรายการนัดด้วยครับ!")
 
@@ -86,50 +101,34 @@ st.markdown("<h1>📅 ระบบบันทึกและจัดการ�
 st.markdown("<p style='color: #7F8C8D; font-size: 16px;'>แสดงรายการนัดหมาย (รูปแบบวันที่ไทย) เรียงตามวันและเวลา พร้อมช่องเลือกจัดการ</p>", unsafe_allow_html=True)
 st.write("---")
 
-# กำหนด Session State สำหรับเก็บข้อมูลตาราง (เพื่อให้พอกดลบแล้วข้อมูลหายจริง)
+# กำหนด Session State ตั้งต้น
 if 'appointments_data' not in st.session_state:
     st.session_state.appointments_data = [
         {
-            "เลือก": False,
-            "วันที่นัด_Eng": "2026-06-01",
-            "เวลานัด": "09:00", 
-            "รายการนัด": "นัดเก่าที่ผ่านมาแล้ว", 
-            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ที่เก่า", "เบอร์โทร": "081-111-1111", "หมายเหตุ": "-"
+            "เลือก": False, "วันที่นัด_Eng": "2026-06-01", "เวลานัด": "09:00", 
+            "รายการนัด": "นัดเก่าที่ผ่านมาแล้ว", "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ที่เก่า", "เบอร์โทร": "081-111-1111", "หมายเหตุ": "-"
         },
         {
-            "เลือก": False,
-            "วันที่นัด_Eng": "2026-08-01",
-            "เวลานัด": "14:30", 
-            "รายการนัด": "จ่ายค่าน้ำค่าไฟ", 
-            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ส่วนตัว", "สถานที่": "การไฟฟ้า", "เบอร์โทร": "089-876-5432", "หมายเหตุ": "กำหนดจ่ายวันสุดท้าย"
+            "เลือก": False, "วันที่นัด_Eng": "2026-08-01", "เวลานัด": "14:30", 
+            "รายการนัด": "จ่ายค่าน้ำค่าไฟ", "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ส่วนตัว", "สถานที่": "การไฟฟ้า", "เบอร์โทร": "089-876-5432", "หมายเหตุ": "กำหนดจ่ายวันสุดท้าย"
         },
         {
-            "เลือก": False,
-            "วันที่นัด_Eng": "2026-07-30",
-            "เวลานัด": "10:00", 
-            "รายการนัด": "ประชุมวางแผนโปรเจกต์", 
-            "นัดโดย": "คุณอ๊อด", "เจ้าของนัด": "ทีมงาน", "สถานที่": "ห้องประชุม A", "เบอร์โทร": "081-234-5678", "หมายเหตุ": "เตรียมเอกสารไปด้วย"
+            "เลือก": False, "วันที่นัด_Eng": "2026-07-30", "เวลานัด": "10:00", 
+            "รายการนัด": "ประชุมวางแผนโปรเจกต์", "นัดโดย": "คุณอ๊อด", "เจ้าofนัด": "ทีมงาน", "สถานที่": "ห้องประชุม A", "เบอร์โทร": "081-234-5678", "หมายเหตุ": "เตรียมเอกสารไปด้วย"
         }
     ]
 
-df = pd.DataFrame(st.session_state.appointments_data)
-
-if not df.empty:
-    # 🧹 1. กรองเฉพาะวันที่ยังไม่ผ่านมา (>= วันนี้)
-    today_str = datetime.today().strftime('%Y-%m-%d')
+if len(st.session_state.appointments_data) > 0:
+    df = pd.DataFrame(st.session_state.appointments_data)
+    
+    # แปลงวันที่และเรียงลำดับ
     df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
-    df = df[df['tmp_date'] >= today_str]
-
-    # ⏱️ 2. เรียงลำดับตามวันที่และเวลา
-    df = df.sort_values(by=['tmp_date', 'เวลานัด'])
-
-    # 🇹🇭 3. แปลงวันที่ให้อยู่ในรูปแบบไทยสำหรับแสดงผลในตาราง
+    df = df.sort_values(by=['tmp_date', 'เวลานัด']).reset_index(drop=True)
     df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
 
-    # จัดเรียงคอลัมน์ใหม่ให้สวยงาม
     display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']].copy()
 
-    # 📊 4. แสดงตารางแบบมี Checkbox ให้ติ๊ก
+    # แสดงตาราง
     edited_df = st.data_editor(
         display_df,
         use_container_width=True,
@@ -145,25 +144,36 @@ if not df.empty:
         height=400
     )
 
-    # ปุ่มจัดการรายการที่ติ๊กเลือก
+    # ปุ่มจัดการลบข้อมูล
     col_btn1, col_btn2, col_spacer = st.columns([1, 1, 3])
     with col_btn1:
         if st.button("🗑️ ลบรายการที่เลือก"):
-            # เช็คว่าในตารางที่มีการแก้ไข มีแถวไหนถูกติ๊กเลือกเป็น True บ้าง
-            selected_rows_indices = edited_df[edited_df["เลือก"] == True].index
+            # หา index ในหน้าจอที่ถูกติ๊กเลือก
+            selected_rows = edited_df[edited_df["เลือก"] == True]
             
-            if len(selected_rows_indices) > 0:
-                # แปลง index ของ display_df กลับไปตัดข้อมูลใน st.session_state.appointments_data
-                original_indices_to_drop = df.iloc[selected_rows_indices].index
+            if not selected_rows.empty:
+                # ดึงรายการที่ *ไม่ได้ถูกติ๊ก* เก็บไว้ใน session_state โดยเทียบจากข้อมูลเดิม
+                indices_to_delete = selected_rows.index.tolist()
+                # แปลงกลับเป็นแถวใน df หลัก
+                original_rows_to_delete = df.iloc[indices_to_delete]
                 
-                # ลบข้อมูลออกจาก session state
-                st.session_state.appointments_data = [
-                    item for i, item in enumerate(st.session_state.appointments_data) 
-                    if i not in original_indices_to_drop
-                ]
+                # กรองเอาเฉพาะข้อมูลที่ไม่ตรงกับแถวที่จะลบออก
+                updated_list = []
+                for idx, item in enumerate(st.session_state.appointments_data):
+                    # เช็คเทียบความเหมือนจากค่าในดิบ
+                    is_match = False
+                    for _, del_row in original_rows_to_delete.iterrows():
+                        if (item['วันที่นัด_Eng'] == del_row['วันที่นัด_Eng'] and 
+                            item['เวลานัด'] == del_row['เวลานัด'] and 
+                            item['รายการนัด'] == del_row['รายการนัด']):
+                            is_match = True
+                            break
+                    if not is_match:
+                        updated_list.append(item)
                 
-                st.success(f"🗑️ ลบออกเรียบร้อยแล้ว {len(selected_rows_indices)} รายการ")
-                st.rerun() # สั่งรีเฟรชหน้าจอทันทีเพื่อให้ตารางอัปเดตข้อมูลหายไป
+                st.session_state.appointments_data = updated_list
+                st.success(f"🗑️ ลบออกเรียบร้อยแล้ว {len(indices_to_delete)} รายการ")
+                st.rerun()
             else:
                 st.warning("⚠️ กรุณาติ๊กช่อง 'เลือก' หน้าแถวที่ต้องการลบก่อนครับ")
 
@@ -171,7 +181,7 @@ if not df.empty:
         if st.button("🔄 รีเฟรชข้อมูล"):
             st.rerun()
 else:
-    st.info("📌 ไม่มีรายการนัดหมายในระบบตอนนี้ครับ")
+    st.info("📌 ไม่มีรายการนัดหมายในระบบตอนนี้ครับ สามารถกรอกเพิ่มทางซ้ายได้เลยครับ")
 
 # ส่วนท้าย
 st.write("---")
