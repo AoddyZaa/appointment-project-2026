@@ -64,8 +64,8 @@ if client:
         rows = sheet.get_all_values() 
         if len(rows) > 1:
             df = pd.DataFrame(rows[1:], columns=rows[0])
-            # เก็บ Row index จริงใน Google Sheets (แถวที่ 2 เริ่มต้นที่ index 2 ของ gspread)
-            df['Row_Index'] = range(2, len(rows) + 1)
+            # แปลงให้เป็น int ธรรมดาของ Python ป้องกันปัญหา int64 JSON serializable
+            df['Row_Index'] = [int(x) for x in range(2, len(rows) + 1)]
         else:
             df = pd.DataFrame()
     except Exception as e:
@@ -108,13 +108,17 @@ if client:
                 else:
                     st.warning("⚠️ กรุณากรอก 'รายการนัด' และ 'นัดโดย'")
 
-    # --- 5. พื้นที่แสดงตารางหลักเต็มจอฝั่งขวา ---
-    col_title, col_btn = st.columns([3, 1])
+    # --- 5. พื้นที่แสดงตารางหลักฝั่งขวา พร้อมปุ่มถังขยะและรีเฟรชด้านบน ---
+    col_title, col_btn_del, col_btn_ref = st.columns([2, 1, 1])
     with col_title:
-        st.subheader("📋 รายการนัดหมายทั้งหมดในระบบ")
-    with col_btn:
-        if st.button("🔄 รีเฟรชข้อมูล"):
-            st.rerun()
+        st.subheader("📋 รายการนัดหมายทั้งหมด")
+    with col_btn_del:
+        delete_clicked = st.button("🗑️ ลบที่เลือก")
+    with col_btn_ref:
+        refresh_clicked = st.button("🔄 รีเฟรช")
+
+    if refresh_clicked:
+        st.rerun()
 
     if not df.empty:
         # เพิ่มคอลัมน์ Checkbox สำหรับติ๊กเลือกแถวเพื่อลบ
@@ -129,28 +133,25 @@ if client:
             key="grid_table"
         )
         
-        # --- ปุ่มถังขยะสำหรับลบรายการที่ติ๊กเลือก ---
-        col_space, col_del = st.columns([4, 1])
-        with col_del:
-            if st.button("🗑️ ลบรายการที่เลือก"):
-                # เช็คว่าแถวไหนถูกติ๊กช่อง 'เลือก' บ้าง
-                rows_to_delete = []
-                for idx, row in edited_df.iterrows():
-                    if row["เลือก"] == True:
-                        real_row_idx = df.loc[idx, 'Row_Index']
-                        rows_to_delete.append(real_row_idx)
-                
-                if rows_to_delete:
-                    try:
-                        # ลบจากแถวล่างสุดขึ้นบน เพื่อไม่ให้ Index ของ Google Sheets เพี้ยน
-                        for r_idx in sorted(rows_to_delete, reverse=True):
-                            sheet.delete_rows(r_idx)
-                        st.success("🗑️ ลบรายการที่เลือกเรียบร้อยแล้วครับ!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"เกิดข้อผิดพลาดในการลบ: {e}")
-                else:
-                    st.warning("⚠️ กรุณาติ๊กเครื่องหมายถูก (✔) หน้าแถวที่ต้องการลบก่อนครับ")
+        # --- จัดการการลบเมื่อกดปุ่มถังขยะด้านบน ---
+        if delete_clicked:
+            rows_to_delete = []
+            for idx, row in edited_df.iterrows():
+                if row["เลือก"] == True:
+                    real_row_idx = int(df.loc[idx, 'Row_Index'])
+                    rows_to_delete.append(real_row_idx)
+            
+            if rows_to_delete:
+                try:
+                    # ลบจากแถวล่างสุดขึ้นบน เพื่อไม่ให้ Index ของ Google Sheets เพี้ยน
+                    for r_idx in sorted(rows_to_delete, reverse=True):
+                        sheet.delete_rows(r_idx)
+                    st.success("🗑️ ลบรายการที่เลือกเรียบร้อยแล้วครับ!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาดในการลบ: {e}")
+            else:
+                st.warning("⚠️ กรุณาติ๊กเครื่องหมายถูก (✔) หน้าแถวที่ต้องการลบก่อนกดปุ่มถังขยะครับ")
     else:
         st.info("📌 ยังไม่มีข้อมูลในระบบ สามารถกดปุ่มก้างปลา (ซ้ายบน) เพื่อเปิดฟอร์มกรอกข้อมูลได้เลยครับ")
 else:
