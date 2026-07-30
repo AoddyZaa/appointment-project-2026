@@ -52,17 +52,19 @@ def add_event_to_calendar(creds, title, date_str, time_str, description=""):
         st.error(f"Calendar Error: {e}")
         return False
 
-# --- 3. ฟังก์ชันแปลงวันที่ ค.ศ. (YYYY-MM-DD) เป็นรูปแบบไทย (30 ก.ค. 2569) ---
+# --- 3. ระบบแปลงเดือนไทย <-> ตัวเลข ---
 thai_months = {
-    1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.",
-    7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."
+    "ม.ค.": 1, "ก.พ.": 2, "มี.ค.": 3, "เม.ย.": 4, "พ.ค.": 5, "มิ.ย.": 6,
+    "ก.ค.": 7, "ส.ค.": 8, "ก.ย.": 9, "ต.ค.": 10, "พ.ย.": 11, "ธ.ค.": 12
 }
+
+thai_months_inverse = {v: k for k, v in thai_months.items()}
 
 def convert_to_thai_date(date_str):
     try:
         dt = datetime.strptime(str(date_str).strip(), "%Y-%m-%d")
         day = dt.day
-        month = thai_months[dt.month]
+        month = thai_months_inverse.get(dt.month, "ม.ค.")
         year = dt.year + 543
         return f"{day} {month} {year}"
     except:
@@ -70,7 +72,7 @@ def convert_to_thai_date(date_str):
 
 # --- 4. ส่วนหัวข้อเว็บแอปหลัก ---
 st.title("📅 ระบบบันทึกและจัดการนัดหมาย")
-st.write("เชื่อมต่อ Google Sheets & Google Calendar (ปฏิทินเลือกวันที่ไทย | เคลียร์ค่าอัตโนมัติ)")
+st.write("เชื่อมต่อ Google Sheets & Google Calendar (แก้แค่วันที่ในตารางได้ตามใจชอบ)")
 
 client, creds = get_sheets_connection()
 
@@ -89,7 +91,7 @@ if client:
         df = pd.DataFrame()
         st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลชีท: {e}")
 
-    # --- 5. เมนูด้านซ้าย (Sidebar) ใช้ st.form แบบมาตรฐาน ---
+    # --- 5. เมนูด้านซ้าย (Sidebar) ฟอร์มบันทึกรายการใหม่ ---
     with st.sidebar:
         with st.form("appointment_form"):
             st.subheader("📌 บันทึกนัดหมายใหม่")
@@ -145,10 +147,12 @@ if client:
                 else:
                     st.warning("⚠️ กรุณากรอก 'รายการนัด' และ 'นัดโดย'")
 
-    # --- 6. พื้นที่แสดงตารางฝั่งขวา แปลงวันที่เป็นรูปแบบไทย ---
-    col_title, col_btn_del, col_btn_ref = st.columns([2, 1, 1])
+    # --- 6. พื้นที่แสดงตารางฝั่งขวา ---
+    col_title, col_btn_save_edit, col_btn_del, col_btn_ref = st.columns([1.5, 1.2, 1, 1])
     with col_title:
-        st.subheader("📋 รายการนัดหมายทั้งหมด")
+        st.subheader("📋 รายการนัดหมาย")
+    with col_btn_save_edit:
+        save_edit_clicked = st.button("💾 บันทึกแก้ไข")
     with col_btn_del:
         delete_clicked = st.button("🗑️ ลบที่เลือก")
     with col_btn_ref:
@@ -169,6 +173,49 @@ if client:
             key="grid_table"
         )
         
+        # --- จัดการบันทึกการแก้ไข (แปลงวันที่ไทยที่แก้ ให้เป็น ค.ศ. อัตโนมัติ) ---
+        if save_edit_clicked:
+            try:
+                updated_count = 0
+                for idx, row in edited_df.iterrows():
+                    real_row_idx = int(df.loc[idx, 'Row_Index'])
+                    orig_row = df.iloc[idx] # ข้อมูลเดิมใน ค.ศ. (เช่น 2026-09-11)
+                    
+                    user_date_text = str(row["วันที่นัด"]).strip() # ข้อความที่ผู้ใช้แก้ เช่น "13 ก.ย. 2569"
+                    
+                    # แกะข้อความวันที่ที่ผู้ใช้แก้ เพื่อแปลงกลับเป็น YYYY-MM-DD ให้ Google Sheets
+                    target_date = orig_row['วันที่นัด'] # ค่าเริ่มต้นเอาของเดิมไว้ก่อน
+                    try:
+                        parts = user_date_text.split()
+                        if len(parts) >= 3:
+                            new_day = int(parts[0])
+                            new_month_str = parts[1]
+                            new_year_thai = int(parts[2])
+                            
+                            new_month_num = thai_months.get(new_month_str, 9)
+                            new_year_eng = new_year_thai - 543
+                            
+                            target_date = f"{new_year_eng:04d}-{new_month_num:02d}-{new_day:02d}"
+                    except:
+                        pass # ถ้าแกะไม่ได้ให้ใช้ค่าเดิมป้องกันพัง
+                    
+                    new_time = row["เวลานัด"]
+                    new_title = row["รายการนัด"]
+                    new_organizer = row["นัดโดย"]
+                    new_owner = row["เจ้าจากนัด" if "เจ้าจากนัด" in row else "เจ้าของนัด"]
+                    new_location = row["สถานที่"]
+                    new_phone = row["เบอร์โทร"]
+                    new_note = row["หมายเหตุ"]
+                    
+                    sheet.update(f"A{real_row_idx}:H{real_row_idx}", [[target_date, new_time, new_title, new_organizer, row["เจ้าของนัด"], new_location, new_phone, new_note]])
+                    updated_count += 1
+                
+                if updated_count > 0:
+                    st.success("💾 บันทึกการแก้ไขข้อมูลเรียบร้อยแล้วครับ!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"เกิดข้อผิดพลาดในการบันทึกแก้ไข: {e}")
+
         if delete_clicked:
             rows_to_delete = []
             for idx, row in edited_df.iterrows():
@@ -187,6 +234,6 @@ if client:
             else:
                 st.warning("⚠️ กรุณาติ๊กเครื่องหมายถูก (✔) หน้าแถวที่ต้องการลบก่อนกดปุ่มถังขยะครับ")
     else:
-        st.info("📌 ยังไม่มีข้อมูลในระบบ สามารถกดปุ่มก้างปลา (ซ้ายบน) เพื่อเปิดฟอร์มกรอกข้อมูลได้เลยครับ")
+        st.info("📌 ยังไม่มีข้อมูลในระบบ สามารถกรอกข้อมูลใหม่จากฟอร์มด้านซ้ายได้เลยครับ")
 else:
     st.error("❌ ไม่สามารถเชื่อมต่อกับ Google API ได้ กรุณาตรวจสอบไฟล์ secrets.toml")
