@@ -72,7 +72,7 @@ def convert_to_thai_date(date_str):
 
 # --- 4. ส่วนหัวข้อเว็บแอปหลัก ---
 st.title("📅 ระบบบันทึกและจัดการนัดหมาย")
-st.write("เชื่อมต่อ Google Sheets & Google Calendar (แก้แค่วันที่ในตารางได้ตามใจชอบ)")
+st.write("เชื่อมต่อ Google Sheets & Google Calendar (เรียงลำดับวันที่อัตโนมัติ | แก้ไขได้)")
 
 client, creds = get_sheets_connection()
 
@@ -162,6 +162,10 @@ if client:
         st.rerun()
 
     if not df.empty:
+        # 🌟 เรียงลำดับข้อมูลตามวันที่นัดจากน้อยไปมาก (เก่าไปใหม่) อัตโนมัติ
+        df['sort_date'] = pd.to_datetime(df['วันที่นัด'], errors='coerce')
+        df = df.sort_values(by=['sort_date', 'เวลานัด'], ascending=[True, True]).drop(columns=['sort_date']).reset_index(drop=True)
+
         display_df = df.copy()
         display_df['วันที่นัด'] = display_df['วันที่นัด'].apply(convert_to_thai_date)
         display_df.insert(0, "เลือก", False)
@@ -173,18 +177,16 @@ if client:
             key="grid_table"
         )
         
-        # --- จัดการบันทึกการแก้ไข (แปลงวันที่ไทยที่แก้ ให้เป็น ค.ศ. อัตโนมัติ) ---
+        # --- จัดการบันทึกการแก้ไข ---
         if save_edit_clicked:
             try:
                 updated_count = 0
                 for idx, row in edited_df.iterrows():
                     real_row_idx = int(df.loc[idx, 'Row_Index'])
-                    orig_row = df.iloc[idx] # ข้อมูลเดิมใน ค.ศ. (เช่น 2026-09-11)
+                    orig_row = df.iloc[idx]
                     
-                    user_date_text = str(row["วันที่นัด"]).strip() # ข้อความที่ผู้ใช้แก้ เช่น "13 ก.ย. 2569"
-                    
-                    # แกะข้อความวันที่ที่ผู้ใช้แก้ เพื่อแปลงกลับเป็น YYYY-MM-DD ให้ Google Sheets
-                    target_date = orig_row['วันที่นัด'] # ค่าเริ่มต้นเอาของเดิมไว้ก่อน
+                    user_date_text = str(row["วันที่นัด"]).strip()
+                    target_date = orig_row['วันที่นัด']
                     try:
                         parts = user_date_text.split()
                         if len(parts) >= 3:
@@ -197,17 +199,17 @@ if client:
                             
                             target_date = f"{new_year_eng:04d}-{new_month_num:02d}-{new_day:02d}"
                     except:
-                        pass # ถ้าแกะไม่ได้ให้ใช้ค่าเดิมป้องกันพัง
+                        pass
                     
                     new_time = row["เวลานัด"]
                     new_title = row["รายการนัด"]
                     new_organizer = row["นัดโดย"]
-                    new_owner = row["เจ้าจากนัด" if "เจ้าจากนัด" in row else "เจ้าของนัด"]
+                    new_owner = row["เจ้าของนัด"]
                     new_location = row["สถานที่"]
                     new_phone = row["เบอร์โทร"]
                     new_note = row["หมายเหตุ"]
                     
-                    sheet.update(f"A{real_row_idx}:H{real_row_idx}", [[target_date, new_time, new_title, new_organizer, row["เจ้าของนัด"], new_location, new_phone, new_note]])
+                    sheet.update(f"A{real_row_idx}:H{real_row_idx}", [[target_date, new_time, new_title, new_organizer, new_owner, new_location, new_phone, new_note]])
                     updated_count += 1
                 
                 if updated_count > 0:
