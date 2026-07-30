@@ -68,9 +68,14 @@ def convert_to_thai_date(date_str):
     except:
         return date_str
 
+# --- กำหนดค่าเริ่มต้น Session State สำหรับเคลียร์ฟอร์ม ---
+for key in ["input_title", "input_organizer", "input_owner", "input_location", "input_phone", "input_note"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
 # --- 4. ส่วนหัวข้อเว็บแอปหลัก ---
 st.title("📅 ระบบบันทึกและจัดการนัดหมาย")
-st.write("เชื่อมต่อ Google Sheets & Google Calendar (ปฏิทินเลือกวันที่ไทย | ล้างฟอร์มให้อัตโนมัติหลังบันทึก)")
+st.write("เชื่อมต่อ Google Sheets & Google Calendar (ปฏิทินเลือกวันที่ไทย | เคลียร์ค่าอัตโนมัติ)")
 
 client, creds = get_sheets_connection()
 
@@ -89,62 +94,64 @@ if client:
         df = pd.DataFrame()
         st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลชีท: {e}")
 
-    # --- 5. เมนูด้านซ้าย (Sidebar) สำหรับเลือกวันที่แบบไทย (ใช้ session_state เคลียร์ค่า) ---
+    # --- 5. เมนูด้านซ้าย (Sidebar) ใช้ st.form เพื่อความเรียบร้อย ---
     with st.sidebar:
-        st.subheader("📌 บันทึกนัดหมายใหม่")
-        
-        thai_months_list = [
-            "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-            "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
-        ]
-        now_dt = datetime.now()
-        current_thai_year = now_dt.year + 543
-        
-        col_d, col_m, col_y = st.columns([1, 1.5, 1.2])
-        with col_d:
-            selected_day = st.selectbox("วัน", list(range(1, 32)), index=now_dt.day - 1, key="input_day")
-        with col_m:
-            selected_month_name = st.selectbox("เดือน", thai_months_list, index=now_dt.month - 1, key="input_month")
-            selected_month_num = thai_months_list.index(selected_month_name) + 1
-        with col_y:
-            selected_thai_year = st.number_input("ปี พ.ศ.", min_value=2500, max_value=2600, value=current_thai_year, step=1, key="input_year")
-        
-        eng_year = selected_thai_year - 543
-        date_input = f"{eng_year:04d}-{selected_month_num:02d}-{selected_day:02d}"
-        
-        st.caption(f"🗓️ วันที่เลือก: **{selected_day} {selected_month_name} {selected_thai_year}**")
+        with st.form("appointment_form"):
+            st.subheader("📌 บันทึกนัดหมายใหม่")
+            
+            thai_months_list = [
+                "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+                "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+            ]
+            now_dt = datetime.now()
+            current_thai_year = now_dt.year + 543
+            
+            col_d, col_m, col_y = st.columns([1, 1.5, 1.2])
+            with col_d:
+                selected_day = st.selectbox("วัน", list(range(1, 32)), index=now_dt.day - 1)
+            with col_m:
+                selected_month_name = st.selectbox("เดือน", thai_months_list, index=now_dt.month - 1)
+                selected_month_num = thai_months_list.index(selected_month_name) + 1
+            with col_y:
+                selected_thai_year = st.number_input("ปี พ.ศ.", min_value=2500, max_value=2600, value=current_thai_year, step=1)
+            
+            eng_year = selected_thai_year - 543
+            date_input = f"{eng_year:04d}-{selected_month_num:02d}-{selected_day:02d}"
+            
+            st.caption(f"🗓️ วันที่เลือก: **{selected_day} {selected_month_name} {selected_thai_year}**")
 
-        time_input = st.selectbox("เวลานัด", ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"], key="input_time")
-        
-        # ใช้ช่องรับข้อมูลแบบปกติ (ไม่ใช่ st.form) เพื่อให้เคลียร์ค่าว่างหลังบันทึกได้สะดวก
-        title_input = st.text_input("รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ", key="input_title")
-        organizer_input = st.text_input("นัดโดย", placeholder="ชื่อผู้ทำรายการนัด", key="input_organizer")
-        owner_input = st.text_input("เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย", key="input_owner")
-        location_input = st.text_input("สถานที่", placeholder="สถานที่นัดหมาย", key="input_location")
-        phone_input = st.text_input("เบอร์โทร", placeholder="เบอร์โทรติดต่อ", key="input_phone")
-        note_input = st.text_area("หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...", key="input_note")
-        
-        if st.button("💾 บันทึกข้อมูลนัดหมาย", type="primary", use_container_width=True):
-            if title_input and organizer_input:
-                try:
-                    if sheet:
-                        sheet.append_row([date_input, time_input, title_input, organizer_input, owner_input, location_input, phone_input, note_input])
-                    
-                    cal_success = add_event_to_calendar(creds, title_input, date_input, time_input, f"สถานที่: {location_input} | นัดโดย: {organizer_input} | โทร: {phone_input}")
-                    
-                    if cal_success:
-                        st.success("🎉 บันทึกสำเร็จ!")
-                        # ล้างค่าในช่องกรอกข้อความโดยเคลียร์ Session State
-                        for k in ["input_title", "input_organizer", "input_owner", "input_location", "input_phone", "input_note"]:
-                            st.session_state[k] = ""
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ บันทึกลง Sheets แล้ว แต่ Calendar มีปัญหา")
+            time_input = st.selectbox("เวลานัด", ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"])
+            
+            title_input = st.text_input("รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ", key="input_title")
+            organizer_input = st.text_input("นัดโดย", placeholder="ชื่อผู้ทำรายการนัด", key="input_organizer")
+            owner_input = st.text_input("เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย", key="input_owner")
+            location_input = st.text_input("สถานที่", placeholder="สถานที่นัดหมาย", key="input_location")
+            phone_input = st.text_input("เบอร์โทร", placeholder="เบอร์โทรติดต่อ", key="input_phone")
+            note_input = st.text_area("หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...", key="input_note")
+            
+            submit_button = st.form_submit_button(label="💾 บันทึกข้อมูลนัดหมาย", use_container_width=True)
+
+            if submit_button:
+                if title_input and organizer_input:
+                    try:
+                        if sheet:
+                            sheet.append_row([date_input, time_input, title_input, organizer_input, owner_input, location_input, phone_input, note_input])
                         
-                except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
-            else:
-                st.warning("⚠️ กรุณากรอก 'รายการนัด' และ 'นัดโดย'")
+                        cal_success = add_event_to_calendar(creds, title_input, date_input, time_input, f"สถานที่: {location_input} | นัดโดย: {organizer_input} | โทร: {phone_input}")
+                        
+                        if cal_success:
+                            # ล้างค่าใน session state ทันที
+                            for k in ["input_title", "input_organizer", "input_owner", "input_location", "input_phone", "input_note"]:
+                                st.session_state[k] = ""
+                            st.success("🎉 บันทึกสำเร็จ!")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ บันทึกลง Sheets แล้ว แต่ Calendar มีปัญหา")
+                            
+                    except Exception as e:
+                        st.error(f"เกิดข้อผิดพลาด: {e}")
+                else:
+                    st.warning("⚠️ กรุณากรอก 'รายการนัด' และ 'นัดโดย'")
 
     # --- 6. พื้นที่แสดงตารางฝั่งขวา แปลงวันที่เป็นรูปแบบไทย ---
     col_title, col_btn_del, col_btn_ref = st.columns([2, 1, 1])
