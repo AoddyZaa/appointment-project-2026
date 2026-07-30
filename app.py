@@ -68,11 +68,6 @@ def convert_to_thai_date(date_str):
     except:
         return date_str
 
-# --- กำหนดค่าเริ่มต้น Session State สำหรับเคลียร์ฟอร์ม ---
-for key in ["input_title", "input_organizer", "input_owner", "input_location", "input_phone", "input_note"]:
-    if key not in st.session_state:
-        st.session_state[key] = ""
-
 # --- 4. ส่วนหัวข้อเว็บแอปหลัก ---
 st.title("📅 ระบบบันทึกและจัดการนัดหมาย")
 st.write("เชื่อมต่อ Google Sheets & Google Calendar (ปฏิทินเลือกวันที่ไทย | เคลียร์ค่าอัตโนมัติ)")
@@ -94,7 +89,7 @@ if client:
         df = pd.DataFrame()
         st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลชีท: {e}")
 
-    # --- 5. เมนูด้านซ้าย (Sidebar) ใช้ st.form เพื่อความเรียบร้อย ---
+    # --- 5. เมนูด้านซ้าย (Sidebar) ใช้ st.form แบบมาตรฐาน ---
     with st.sidebar:
         with st.form("appointment_form"):
             st.subheader("📌 บันทึกนัดหมายใหม่")
@@ -122,12 +117,12 @@ if client:
 
             time_input = st.selectbox("เวลานัด", ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"])
             
-            title_input = st.text_input("รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ", key="input_title")
-            organizer_input = st.text_input("นัดโดย", placeholder="ชื่อผู้ทำรายการนัด", key="input_organizer")
-            owner_input = st.text_input("เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย", key="input_owner")
-            location_input = st.text_input("สถานที่", placeholder="สถานที่นัดหมาย", key="input_location")
-            phone_input = st.text_input("เบอร์โทร", placeholder="เบอร์โทรติดต่อ", key="input_phone")
-            note_input = st.text_area("หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...", key="input_note")
+            title_input = st.text_input("รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ")
+            organizer_input = st.text_input("นัดโดย", placeholder="ชื่อผู้ทำรายการนัด")
+            owner_input = st.text_input("เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย")
+            location_input = st.text_input("สถานที่", placeholder="สถานที่นัดหมาย")
+            phone_input = st.text_input("เบอร์โทร", placeholder="เบอร์โทรติดต่อ")
+            note_input = st.text_area("หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...")
             
             submit_button = st.form_submit_button(label="💾 บันทึกข้อมูลนัดหมาย", use_container_width=True)
 
@@ -140,9 +135,6 @@ if client:
                         cal_success = add_event_to_calendar(creds, title_input, date_input, time_input, f"สถานที่: {location_input} | นัดโดย: {organizer_input} | โทร: {phone_input}")
                         
                         if cal_success:
-                            # ล้างค่าใน session state ทันที
-                            for k in ["input_title", "input_organizer", "input_owner", "input_location", "input_phone", "input_note"]:
-                                st.session_state[k] = ""
                             st.success("🎉 บันทึกสำเร็จ!")
                             st.rerun()
                         else:
