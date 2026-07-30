@@ -1,108 +1,111 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 import gspread
-from google.oauth2.service_account import Credentials
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import pandas as pd
 
-st.set_page_config(page_title="ระบบบันทึกและแจ้งเตือนนัดหมาย", page_icon="📅", layout="wide")
-
-st.markdown("""
-    <style>
-    .main { background-color: #FFFDF9; }
-    .stButton>button {
-        background: linear-gradient(135deg, #F39C12 0%, #F1C40F 100%);
-        color: #2C3E50; font-weight: bold; border-radius: 12px; padding: 0.6rem 1.2rem; border: none;
-    }
-    h1, h2, h3 { color: #B7950B; font-family: 'Prompt', sans-serif; }
-    [data-testid="stSidebar"] { background-color: #FEF9E7; }
-    </style>
-""", unsafe_allow_html=True)
-
-thai_months = {1: "ม.ค.", 2: "ก.พ.", 3: "มี.ค.", 4: "เม.ย.", 5: "พ.ค.", 6: "มิ.ย.", 7: "ก.ค.", 8: "ส.ค.", 9: "ก.ย.", 10: "ต.ค.", 11: "พ.ย.", 12: "ธ.ค."}
-
-def format_thai_date(date_obj):
-    if isinstance(date_obj, str):
-        date_obj = datetime.strptime(date_obj, '%Y-%m-%d')
-    return f"{date_obj.day} {thai_months[date_obj.month]} {date_obj.year + 543}"
-
-# เชื่อมต่อผ่าน st.secrets
-def get_google_sheet_data():
+# --- 1. ตั้งค่าการเชื่อมต่อ Google API ผ่าน st.secrets ---
+def get_sheets_connection():
     try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = dict(st.secrets["gspread"])
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(crez := creds)
-        
-        sheet = client.open("AppointmentDB").sheet1
-        data = sheet.get_all_records()
-        return sheet, pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"⚠️ ไม่สามารถเชื่อมต่อ Google Sheets ได้: {e}")
-        return None, pd.DataFrame()
-
-sheet_connection, df_remote = get_google_sheet_data()
-
-st.sidebar.markdown("<h2>📌 บันทึกนัดหมายใหม่</h2>", unsafe_allow_html=True)
-with st.sidebar.form("appointment_form", clear_on_submit=True):
-    app_date = st.date_input("🗓️ วันที่นัด", value=datetime.today())
-    app_time = st.time_input("⏰ เวลานัด")
-    title = st.text_input("📝 รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ")
-    booked_by = st.text_input("👤 นัดโดย", placeholder="ชื่อผู้ทำรายการนัด")
-    owner = st.text_input("⭐ เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย")
-    location = st.text_input("📍 สถานที่", placeholder="สถานที่นัดหมาย")
-    phone = st.text_input("📞 เบอร์โทร", placeholder="เบอร์โทรติดต่อ")
-    note = st.text_area("📄 หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...")
-    
-    submitted = st.form_submit_button("💾 บันทึกข้อมูลนัดหมาย")
-    if submitted:
-        if title:
-            new_row = [
-                app_date.strftime('%Y-%m-%d'),
-                app_time.strftime('%H:%M'),
-                title,
-                booked_by if booked_by else "-",
-                owner if owner else "-",
-                location if location else "-",
-                phone if phone else "-",
-                note if note else "-"
+        creds_dict = dict(st.secrets["gsheets"])
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive",
+                "https://www.googleapis.com/auth/calendar"
             ]
-            if sheet_connection is not None:
-                sheet_connection.append_row(new_row)
-                st.sidebar.success(f"🎉 บันทึก '{title}' เรียบร้อย!")
-                st.rerun()
+        )
+        client = gspread.authorize(creds)
+        return client, creds
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Credentials: {e}")
+        return None, None
+
+# --- 2. ฟังก์ชันเพิ่มนัดหมายลง Google Calendar (เตือน 3 เวลา) ---
+def add_event_to_calendar(creds, title, date_str, time_str, description=""):
+    try:
+        service = build('calendar', 'v3', credentials=creds)
+        start_datetime = f"{date_str}T{time_str}:00"
+        
+        event = {
+            'summary': title,
+            'description': description,
+            'start': {'dateTime': start_datetime, 'timeZone': 'Asia/Bangkok'},
+            'end': {'dateTime': start_datetime, 'timeZone': 'Asia/Bangkok'},
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'email', 'minutes': 24 * 60},
+                    {'method': 'popup', 'minutes': 24 * 60},
+                    {'method': 'popup', 'minutes': 60},
+                ],
+            },
+        }
+        service.events().insert(calendarId='primary', body=event).execute()
+        return True
+    except Exception as e:
+        st.error(f"Calendar Error: {e}")
+        return False
+
+# --- 3. ส่วนหน้าตาเว็บแอป (Streamlit UI) ---
+st.title("📅 ระบบบันทึกและจัดการนัดหมาย")
+st.write("เชื่อมต่อ Google Sheets & Google Calendar สำเร็จเรียบร้อย")
+
+client, creds = get_sheets_connection()
+
+if client:
+    try:
+        spreadsheet = client.open("AppointmentDB")
+        sheet = spreadsheet.worksheet("Sheet1") 
+        rows = sheet.get_all_values() 
+        if len(rows) > 1:
+            df = pd.DataFrame(rows[1:], columns=rows[0])
         else:
-            st.sidebar.error("⚠️ กรุณากรอกรายการนัดด้วยครับ!")
+            df = pd.DataFrame()
+    except Exception as e:
+        sheet = None
+        df = pd.DataFrame()
+        st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูลชีท: {e}")
 
-st.markdown("<h1>📅 ระบบบันทึกและจัดการนัดหมาย</h1>", unsafe_allow_html=True)
-st.write("---")
+    with st.form("appointment_form"):
+        st.subheader("📌 บันทึกนัดหมายใหม่")
+        date_input = st.text_input("วันที่นัด (YYYY-MM-DD)", value="2026-08-24")
+        time_input = st.selectbox("เวลานัด", ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"])
+        title_input = st.text_input("รายการนัด", placeholder="เช่น ประชุมงาน, หาหมอ")
+        organizer_input = st.text_input("นัดโดย", placeholder="ชื่อผู้ทำรายการนัด")
+        owner_input = st.text_input("เจ้าของนัด", placeholder="ชื่อเจ้าของนัดหมาย")
+        location_input = st.text_input("สถานที่", placeholder="สถานที่นัดหมาย")
+        phone_input = st.text_input("เบอร์โทร", placeholder="เบอร์โทรติดต่อ")
+        note_input = st.text_area("หมายเหตุ", placeholder="รายละเอียดเพิ่มเติม...")
+        
+        submit_button = st.form_submit_button(label="บันทึกข้อมูลนัดหมาย")
 
-if not df_remote.empty and 'วันที่นัด_Eng' in df_remote.columns:
-    df = df_remote.copy()
-    df['เลือก'] = False
-    df['tmp_date'] = pd.to_datetime(df['วันที่นัด_Eng'])
-    df = df.sort_values(by=['tmp_date', 'เวลานัด']).reset_index(drop=True)
-    df['วันที่นัด'] = df['tmp_date'].apply(format_thai_date)
+        if submit_button:
+            if title_input and organizer_input:
+                try:
+                    if sheet:
+                        sheet.append_row([date_input, time_input, title_input, organizer_input, owner_input, location_input, phone_input, note_input])
+                    
+                    formatted_date = date_input.replace("/", "-")
+                    cal_success = add_event_to_calendar(creds, title_input, formatted_date, time_input, f"สถานที่: {location_input} | นัดโดย: {organizer_input} | โทร: {phone_input}")
+                    
+                    if cal_success:
+                        st.success("🎉 บันทึกลง Google Sheets และตั้งเตือนใน Google Calendar เรียบร้อยแล้วครับ!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ บันทึกลง Google Sheets แล้ว แต่ Calendar มีปัญหา")
+                        
+                except Exception as e:
+                    st.error(f"เกิดข้อผิดพลาดในการบันทึก: {e}")
+            else:
+                st.warning("⚠️ กรุณากรอกข้อมูล 'รายการนัด' และ 'นัดโดย' ให้ครบถ้วนครับ")
 
-    display_df = df[['เลือก', 'วันที่นัด', 'เวลานัด', 'รายการนัด', 'นัดโดย', 'เจ้าของนัด', 'สถานที่', 'เบอร์โทร', 'หมายเหตุ']].copy()
-
-    edited_df = st.data_editor(display_df, use_container_width=True, hide_index=True, num_rows="fixed",
-        column_config={"เลือก": st.column_config.CheckboxColumn("☑️ เลือก", default=False)}, height=400)
-
-    if st.button("🗑️ ลบรายการที่เลือก"):
-        selected_rows = edited_df[edited_df["เลือก"] == True]
-        if not selected_rows.empty and sheet_connection is not None:
-            all_records = sheet_connection.get_all_records()
-            rows_to_delete_indices = []
-            for idx, record in enumerate(all_records):
-                for _, del_row in selected_rows.iterrows():
-                    if (str(record.get('วันที่นัด_Eng')) == str(del_row['วันที่นัด_Eng']) and 
-                        str(record.get('เวลานัด')) == str(del_row['เวลานัด']) and 
-                        str(record.get('รายการนัด')) == str(del_row['รายการนัด'])):
-                        rows_to_delete_indices.append(idx + 2)
-                        break
-            for r_idx in sorted(rows_to_delete_indices, reverse=True):
-                sheet_connection.delete_rows(r_idx)
-            st.success("🗑️ ลบข้อมูลเรียบร้อย!")
-            st.rerun()
+    st.divider()
+    st.subheader("📋 รายการนัดหมายทั้งหมดในระบบ")
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("📌 กำลังดึงข้อมูลจาก Google Sheets หรือยังไม่มีข้อมูลในระบบครับ")
 else:
-    st.info("📌 กำลังดึงข้อมูลจาก Google Sheets หรือยังไม่มีข้อมูลในระบบครับ")
+    st.error("❌ ไม่สามารถเชื่อมต่อกับ Google API ได้ กรุณาตรวจสอบไฟล์ secrets.toml")
